@@ -1029,6 +1029,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "caliptra-mcu-aspeed-ipc"
+version = "0.1.0"
+dependencies = [
+ "kernel",
+ "registers-peripherals",
+ "tock-registers",
+]
+
+[[package]]
 name = "caliptra-mcu-attestation-evidence"
 version = "0.1.0"
 dependencies = [
@@ -5553,6 +5562,7 @@ name = "mcu-runtime-ast2705"
 version = "0.1.0"
 dependencies = [
  "arrayvec",
+ "caliptra-mcu-aspeed-ipc",
  "caliptra-mcu-capsules-ast2705",
  "caliptra-mcu-capsules-emulator",
  "caliptra-mcu-capsules-runtime",

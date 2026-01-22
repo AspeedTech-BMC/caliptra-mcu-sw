@@ -10,6 +10,9 @@ pub const RECOVERY_FLASH_CTRL_EVENT_IRQ: u8 = 0x15;
 pub const RECOVERY_FLASH_CTRL_ERROR_IRQ: u8 = 0x16;
 pub const DMA_EVENT_IRQ: u8 = 0x17;
 pub const DMA_ERROR_IRQ: u8 = 0x18;
+pub const IPC0_IRQ: u8 = 0x21;
+pub const IPC1_IRQ: u8 = 0x22;
+
 #[cfg(any(feature = "doe", feature = "test-doe-transport-loopback"))]
 pub const DOE_MBOX_EVENT_IRQ: u8 = 0x19;
 
@@ -17,6 +20,8 @@ impl<'a> InterruptService for Ast2705Peripherals<'a> {
     unsafe fn service_interrupt(&self, interrupt: u32) -> bool {
         if interrupt == UART_IRQ as u32 {
             self.uart.handle_interrupt();
+            return true;
+        } else if interrupt == IPC0_IRQ as u32 || interrupt == IPC1_IRQ as u32 {
             return true;
         } else if interrupt == MAIN_FLASH_CTRL_ERROR_IRQ as u32
             || interrupt == MAIN_FLASH_CTRL_EVENT_IRQ as u32

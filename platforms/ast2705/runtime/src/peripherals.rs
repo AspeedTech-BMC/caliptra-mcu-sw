@@ -11,8 +11,11 @@ use registers_peripherals::uart16550::Uart16550Registers;
 pub const ASPEED_UART_BASE: StaticRef<Uart16550Registers> =
     unsafe { StaticRef::new(peri::ASPEED_UART_ADDR as *const Uart16550Registers) };
 
+const BOOTMCU_DRAM_BASE: u64 = 0x8000_0000;
+
 pub struct Ast2705Peripherals<'a> {
     pub uart: Ast2705Uart16550<'a>,
+    pub ipc: caliptra_mcu_aspeed_ipc::AspeedIpcCtrl,
     pub primary_flash_ctrl: caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashCtrl<'a>,
     pub secondary_flash_ctrl: caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashCtrl<'a>,
     pub dma: caliptra_mcu_dma_driver::axicdma::AxiCDMA<'a, InternalTimers<'a>>,
@@ -24,6 +27,12 @@ impl<'a> Ast2705Peripherals<'a> {
     pub fn new(alarm: &'a MuxAlarm<'a, InternalTimers<'a>>) -> Self {
         Self {
             uart: Ast2705Uart16550::new(ASPEED_UART_BASE),
+            ipc: caliptra_mcu_aspeed_ipc::AspeedIpcCtrl::new(
+                peri::ASPEED_IPC_TX_ADDR,
+                peri::ASPEED_IPC_RX_ADDR,
+                0,
+                BOOTMCU_DRAM_BASE,
+            ),
             primary_flash_ctrl: caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashCtrl::new(
                 caliptra_mcu_flash_ctrl_ast2705::PRIMARY_FLASH_CTRL_BASE,
             ),
@@ -44,6 +53,7 @@ impl<'a> Ast2705Peripherals<'a> {
     }
 
     pub fn init(&'static self) {
+        self.ipc.init();
         self.primary_flash_ctrl.init();
         self.secondary_flash_ctrl.init();
         self.dma.init();
