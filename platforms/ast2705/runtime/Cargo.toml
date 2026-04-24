@@ -19,7 +19,6 @@ caliptra-mcu-doe-mbox-driver = { workspace = true, optional = true }
 caliptra-mcu-dma-driver.workspace = true
 caliptra-mcu-external-otp-driver.workspace = true
 caliptra-mcu-external-otp-emulator.workspace = true
-caliptra-mcu-flash-ctrl-emulator.workspace = true
 caliptra-mcu-flash-driver.workspace = true
 caliptra-mcu-i3c-driver.workspace = true
 kernel.workspace = true
@@ -39,7 +38,9 @@ riscv.workspace = true
 rv32i.workspace = true
 
 # Aspeed dependencies
+caliptra-mcu-capsules-ast2705.workspace = true
 caliptra-mcu-config-ast2705.workspace = true
+caliptra-mcu-flash-ctrl-ast2705.workspace = true
 registers-peripherals.workspace = true
 
 [features]

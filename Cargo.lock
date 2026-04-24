@@ -1095,6 +1095,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "caliptra-mcu-capsules-ast2705"
+version = "0.1.0"
+dependencies = [
+ "bitfield",
+ "caliptra-mcu-capsules-runtime",
+ "caliptra-mcu-flash-driver",
+ "caliptra-mcu-platforms-common",
+ "caliptra-mcu-registers-generated",
+ "kernel",
+]
+
+[[package]]
 name = "caliptra-mcu-capsules-emulator"
 version = "0.1.0"
 dependencies = [
@@ -1563,6 +1575,16 @@ dependencies = [
  "uuid",
  "walkdir",
  "zerocopy",
+]
+
+[[package]]
+name = "caliptra-mcu-flash-ctrl-ast2705"
+version = "0.1.0"
+dependencies = [
+ "caliptra-mcu-registers-generated",
+ "caliptra-mcu-romtime",
+ "capsules-core",
+ "kernel",
 ]
 
 [[package]]
@@ -5530,6 +5552,7 @@ name = "mcu-runtime-ast2705"
 version = "0.1.0"
 dependencies = [
  "arrayvec",
+ "caliptra-mcu-capsules-ast2705",
  "caliptra-mcu-capsules-emulator",
  "caliptra-mcu-capsules-runtime",
  "caliptra-mcu-components",
@@ -5540,7 +5563,7 @@ dependencies = [
  "caliptra-mcu-doe-transport",
  "caliptra-mcu-external-otp-driver",
  "caliptra-mcu-external-otp-emulator",
- "caliptra-mcu-flash-ctrl-emulator",
+ "caliptra-mcu-flash-ctrl-ast2705",
  "caliptra-mcu-flash-driver",
  "caliptra-mcu-i3c-driver",
  "caliptra-mcu-mbox-comm",

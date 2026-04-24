@@ -128,6 +128,8 @@ members = [
     # Aspeed specific members
     "platforms/ast2705/config",
     "platforms/ast2705/runtime",
+    "platforms/ast2705/runtime/kernel/drivers/flash_ctrl",
+    "platforms/ast2705/runtime/kernel/capsules",
     "platforms/ast2705/runtime/userspace/apps/user",
     "registers/generated-peripherals",
 ]
@@ -459,8 +461,10 @@ tock-registers = { git = "https://github.com/tock/tock.git", rev = "release-2.2"
 # tock-registers = { path = "../tock/libraries/tock-register-interface" }
 
 # local aspeed dependencies
+caliptra-mcu-capsules-ast2705 = { path = "platforms/ast2705/runtime/kernel/capsules" }
 caliptra-mcu-config-ast2705 = { path = "platforms/ast2705/config" }
 caliptra-mcu-libapi-ast2705-caliptra = { path = "platforms/ast2705/runtime/userspace/api/caliptra-api" }
+caliptra-mcu-flash-ctrl-ast2705 = { path = "platforms/ast2705/runtime/kernel/drivers/flash_ctrl"}
 registers-peripherals = { path = "registers/generated-peripherals" }
 
 # Always optimize the emulator during tests, as it is a major bottleneck for

@@ -830,7 +830,7 @@ pub unsafe fn main() {
     let mux_primary_flash =
         components::flash::FlashMuxComponent::new(&ast2705_peripherals.primary_flash_ctrl)
             .finalize(components::flash_mux_component_static!(
-                caliptra_mcu_flash_ctrl_emulator::EmulatedFlashCtrl
+                caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashCtrl
             ));
 
     #[cfg(any(feature = "flash-boot", feature = "firmware-update"))]
@@ -844,8 +844,8 @@ pub unsafe fn main() {
         flash_partitions,
         board_kernel,
         mux_primary_flash,
-        caliptra_mcu_flash_ctrl_emulator::EmulatedFlashCtrl,
-        caliptra_mcu_flash_ctrl_emulator::ERASE_SECTOR_SIZE
+        caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashCtrl,
+        caliptra_mcu_flash_ctrl_ast2705::ERASE_SECTOR_SIZE
     );
 
     // Create a mux for the recovery flash controller
@@ -853,7 +853,7 @@ pub unsafe fn main() {
     let mux_secondary_flash =
         components::flash::FlashMuxComponent::new(&ast2705_peripherals.secondary_flash_ctrl)
             .finalize(components::flash_mux_component_static!(
-                caliptra_mcu_flash_ctrl_emulator::EmulatedFlashCtrl
+                caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashCtrl
             ));
 
     #[cfg(any(feature = "flash-boot", feature = "firmware-update"))]
@@ -862,8 +862,8 @@ pub unsafe fn main() {
         flash_partitions,
         board_kernel,
         mux_secondary_flash,
-        caliptra_mcu_flash_ctrl_emulator::EmulatedFlashCtrl,
-        caliptra_mcu_flash_ctrl_emulator::ERASE_SECTOR_SIZE
+        caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashCtrl,
+        caliptra_mcu_flash_ctrl_ast2705::ERASE_SECTOR_SIZE
     );
 
     #[cfg(any(feature = "dot-mci-mailbox", feature = "dot-spdm-vdm"))]
@@ -895,8 +895,8 @@ pub unsafe fn main() {
         logging_flash,
         board_kernel,
         mux_primary_flash,
-        caliptra_mcu_flash_ctrl_emulator::EmulatedFlashCtrl,
-        caliptra_mcu_flash_ctrl_emulator::PAGE_SIZE,
+        caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashCtrl,
+        caliptra_mcu_flash_ctrl_ast2705::PAGE_SIZE,
         true
     );
 
@@ -928,28 +928,26 @@ pub unsafe fn main() {
 
     // Create a dedicated FlashUser from the primary flash mux for OTP access.
     let otp_fl_user = components::flash::FlashUserComponent::new(mux_primary_flash).finalize(
-        components::flash_user_component_static!(
-            caliptra_mcu_flash_ctrl_emulator::EmulatedFlashCtrl
-        ),
+        components::flash_user_component_static!(caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashCtrl),
     );
 
     // Bridge page-level flash to byte-addressed FlashStorage.
     let otp_page_buffer = static_init!(
-        caliptra_mcu_flash_ctrl_emulator::EmulatedFlashPage,
-        caliptra_mcu_flash_ctrl_emulator::EmulatedFlashPage::default()
+        caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashPage,
+        caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashPage::default()
     );
     let otp_fs_to_pages = static_init!(
         caliptra_mcu_flash_driver::flash_storage_to_pages::FlashStorageToPages<
             'static,
             capsules_core::virtualizers::virtual_flash::FlashUser<
                 'static,
-                caliptra_mcu_flash_ctrl_emulator::EmulatedFlashCtrl<'static>,
+                caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashCtrl<'static>,
             >,
         >,
         caliptra_mcu_flash_driver::flash_storage_to_pages::FlashStorageToPages::new(
             otp_fl_user,
             otp_page_buffer,
-            caliptra_mcu_flash_ctrl_emulator::ERASE_SECTOR_SIZE,
+            caliptra_mcu_flash_ctrl_ast2705::ERASE_SECTOR_SIZE,
         )
     );
     kernel::hil::flash::HasClient::set_client(otp_fl_user, otp_fs_to_pages);

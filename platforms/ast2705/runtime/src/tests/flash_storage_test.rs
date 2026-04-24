@@ -78,14 +78,14 @@ impl caliptra_mcu_flash_driver::hil::FlashStorageClient for FlashStorageTestCall
 macro_rules! static_init_fs_test {
     ($flash_ctrl:expr, $buf_len:expr) => {{
         let fs_drv = static_init!(
-            FlashStorageToPages<caliptra_mcu_flash_ctrl_emulator::EmulatedFlashCtrl>,
+            FlashStorageToPages<flash_ctrl_ast2705::Ast2705FlashCtrl>,
             FlashStorageToPages::new(
                 $flash_ctrl,
                 static_init!(
-                    caliptra_mcu_flash_ctrl_emulator::EmulatedFlashPage,
-                    caliptra_mcu_flash_ctrl_emulator::EmulatedFlashPage::default()
+                    flash_ctrl_ast2705::Ast2705FlashPage,
+                    flash_ctrl_ast2705::Ast2705FlashPage::default()
                 ),
-                caliptra_mcu_flash_ctrl_emulator::ERASE_SECTOR_SIZE
+                flash_ctrl_ast2705::ERASE_SECTOR_SIZE
             )
         );
 
@@ -108,9 +108,7 @@ macro_rules! static_init_fs_test {
 }
 
 fn test_single_flash_storage_erase(
-    flash_storage_drv: &'static FlashStorageToPages<
-        caliptra_mcu_flash_ctrl_emulator::EmulatedFlashCtrl,
-    >,
+    flash_storage_drv: &'static FlashStorageToPages<flash_ctrl_ast2705::Ast2705FlashCtrl>,
     test_cb: &'static FlashStorageTestCallBack,
 ) {
     flash_storage_drv.set_client(test_cb);
@@ -201,9 +199,7 @@ pub fn test_flash_storage_erase() -> Option<u32> {
 }
 
 fn test_single_flash_storage_read_write(
-    flash_storage_drv: &'static FlashStorageToPages<
-        caliptra_mcu_flash_ctrl_emulator::EmulatedFlashCtrl,
-    >,
+    flash_storage_drv: &'static FlashStorageToPages<flash_ctrl_ast2705::Ast2705FlashCtrl>,
     test_cb: &'static FlashStorageTestCallBack,
 ) {
     flash_storage_drv.set_client(test_cb);

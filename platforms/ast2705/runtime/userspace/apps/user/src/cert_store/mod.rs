@@ -20,7 +20,7 @@ extern crate alloc;
 mod slot0_endorsements;
 
 #[cfg(feature = "test-mctp-spdm-set-certificate")]
-use caliptra_mcu_config_emulator::flash::CERT_STORE_PARTITION;
+use caliptra_mcu_config_ast2705::flash::CERT_STORE_PARTITION;
 use caliptra_mcu_libsyscall_caliptra::external_otp::ExternalOtp;
 use caliptra_mcu_libsyscall_caliptra::DefaultSyscalls;
 use caliptra_mcu_libtock_console::Console;

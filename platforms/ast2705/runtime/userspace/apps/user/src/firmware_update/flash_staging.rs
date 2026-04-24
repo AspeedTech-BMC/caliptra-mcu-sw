@@ -3,7 +3,7 @@
 extern crate alloc;
 use alloc::boxed::Box;
 use async_trait::async_trait;
-use caliptra_mcu_config_emulator::flash::{IMAGE_A_PARTITION, STAGING_PARTITION};
+use caliptra_mcu_config_ast2705::flash::{IMAGE_A_PARTITION, STAGING_PARTITION};
 use caliptra_mcu_libsyscall_caliptra::flash::SpiFlash as FlashSyscall;
 use caliptra_mcu_libsyscall_caliptra::DefaultSyscalls;
 use caliptra_mcu_libtock_console::Console;

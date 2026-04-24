@@ -67,12 +67,12 @@ pub unsafe fn run(
 ) -> Option<u32> {
     flash_controller.init();
     let pagebuffer = static_init!(
-        caliptra_mcu_flash_ctrl_emulator::EmulatedFlashPage,
-        caliptra_mcu_flash_ctrl_emulator::EmulatedFlashPage::default()
+        flash_ctrl_ast2705::Ast2705FlashPage,
+        flash_ctrl_ast2705::Ast2705FlashPage::default()
     );
     let read_pagebuffer = static_init!(
-        caliptra_mcu_flash_ctrl_emulator::EmulatedFlashPage,
-        caliptra_mcu_flash_ctrl_emulator::EmulatedFlashPage::default()
+        flash_ctrl_ast2705::Ast2705FlashPage,
+        flash_ctrl_ast2705::Ast2705FlashPage::default()
     );
     // Create actual log storage abstraction on top of flash.
     let log: &'static mut Log = static_init!(
