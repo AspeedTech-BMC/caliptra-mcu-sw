@@ -25,6 +25,9 @@ tock-registers.workspace = true
 caliptra-ureg.workspace = true
 zerocopy.workspace = true
 
+# Aspeed specific crate
+caliptra-mcu-aspeed-ipc.workspace = true
+
 [features]
 default = []
 debug-capsule-prints = []

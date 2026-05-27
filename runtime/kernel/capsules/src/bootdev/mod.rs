@@ -1,6 +1,7 @@
 // Licensed under the Apache-2.0 license
 
 pub mod hil;
+pub mod ipc;
 
 use self::hil::{ImageFlash, KernelImageClient, KernelImageLoader};
 use core::cell::Cell;

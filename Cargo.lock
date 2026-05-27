@@ -1133,6 +1133,7 @@ version = "0.1.0"
 dependencies = [
  "bitfield",
  "caliptra-api",
+ "caliptra-mcu-aspeed-ipc",
  "caliptra-mcu-doe-transport",
  "caliptra-mcu-error",
  "caliptra-mcu-external-otp-driver",
