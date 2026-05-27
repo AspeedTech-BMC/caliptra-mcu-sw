@@ -1,5 +1,8 @@
 // Licensed under the Apache-2.0 license
 
+// Aspeed specific crate
+mod bootdev_client;
+
 extern crate alloc;
 pub mod dma_transfer;
 mod flash_client;
@@ -14,15 +17,20 @@ use caliptra_api::mailbox::{
     CommandId, GetImageInfoReq, MailboxReqHeader, MailboxRespHeader, Request,
 };
 use caliptra_mcu_flash_image::{FlashHeader, SOC_MANIFEST_IDENTIFIER};
+use caliptra_mcu_libsyscall_caliptra::bootdev::{boot_dev_type, BootDev as BootDevSyscall};
 use caliptra_mcu_libsyscall_caliptra::dma::DMAMapping;
 use caliptra_mcu_libsyscall_caliptra::flash::SpiFlash as FlashSyscall;
 use caliptra_mcu_libsyscall_caliptra::mailbox::{MailboxError, PayloadStream};
+use caliptra_mcu_libsyscall_caliptra::DefaultSyscalls;
 use caliptra_mcu_libsyscall_caliptra::{dma::AXIAddr, mailbox::Mailbox};
+use caliptra_mcu_libtock_console::Console;
 use caliptra_mcu_libtock_platform::ErrorCode;
 
 use caliptra_mcu_pldm_common::message::firmware_update::get_fw_params::FirmwareParameters;
 use caliptra_mcu_pldm_common::message::firmware_update::verify_complete::VerifyResult;
 use caliptra_mcu_pldm_common::protocol::firmware_update::Descriptor;
+use caliptra_mcu_pldm_lib::timer::AsyncAlarm;
+use core::fmt::Write;
 use dma_transfer::DmaTransfer;
 use embassy_executor::Spawner;
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
@@ -48,6 +56,12 @@ pub trait ImageLoader {
     async fn load(&self, image_id: u32) -> Result<LoadedImage, ErrorCode>;
 }
 
+pub struct BootDevImageLoader<D: DMAMapping + 'static> {
+    mailbox: Mailbox,
+    boot_dev: BootDevSyscall,
+    dma_mapping: &'static D,
+}
+
 pub struct FlashImageLoader<'a, T: DmaTransfer> {
     mailbox: Mailbox,
     flash: FlashSyscall,
@@ -65,6 +79,86 @@ pub struct PldmImageLoader<'a, D: DMAMapping + 'static> {
 pub struct PldmFirmwareDeviceParams<'a> {
     pub descriptors: &'a [Descriptor],
     pub fw_params: &'a FirmwareParameters,
+}
+
+impl<D: DMAMapping + 'static> BootDevImageLoader<D> {
+    pub fn new(bootdev_syscall: BootDevSyscall, dma_mapping: &'static D) -> Self {
+        Self {
+            mailbox: Mailbox::new(),
+            boot_dev: bootdev_syscall,
+            dma_mapping,
+        }
+    }
+
+    pub async fn bootdev_load_ready(&self) -> Result<(), ErrorCode> {
+        while self.boot_dev.bootdev_ready().is_err() {
+            // Boot device not ready yet; yield to Tock OS and check again next round.
+            let _ = AsyncAlarm::<DefaultSyscalls>::sleep_ticks(1).await;
+        }
+        self.boot_dev.app_ready()?;
+        Ok(())
+    }
+
+    pub async fn wait_image_needed(&self) -> Result<(u32, u32), ErrorCode> {
+        self.boot_dev.wait_image_needed().await
+    }
+}
+
+#[async_trait(?Send)]
+impl<D: DMAMapping + 'static> ImageLoader for BootDevImageLoader<D> {
+    async fn load(&self, image_id: u32) -> Result<LoadedImage, ErrorCode> {
+        let boot_type = self.boot_dev.bootdev_type()?;
+        let image_info = get_image_info(&self.mailbox, image_id).await?;
+        let load_addr = ((image_info.image_load_address_high as u64) << 32)
+            | (image_info.image_load_address_low as u64);
+
+        let size = match boot_type {
+            boot_dev_type::IPC => {
+                let (_, size) = self
+                    .boot_dev
+                    .image_loaded(image_id, load_addr as u32, 0)
+                    .await?;
+                size
+            }
+            boot_dev_type::FLASH => {
+                let mut header: [u8; core::mem::size_of::<FlashHeader>()] =
+                    [0; core::mem::size_of::<FlashHeader>()];
+                bootdev_client::bootdev_read_header(&self.boot_dev, &mut header).await?;
+                let (offset, size) =
+                    bootdev_client::bootdev_read_toc(&self.boot_dev, &header, image_id).await?;
+
+                bootdev_client::bootdev_load_image(
+                    &self.boot_dev,
+                    load_addr,
+                    offset as usize,
+                    size as usize,
+                    self.dma_mapping,
+                )
+                .await?;
+
+                size
+            }
+            _ => return Err(ErrorCode::Fail),
+        };
+
+        writeln!(
+            Console::<DefaultSyscalls>::writer(),
+            "[ast-loader] Load image {:04x} at {:08x} with size = {}\r",
+            image_id,
+            load_addr,
+            size,
+        )
+        .unwrap();
+
+        self.boot_dev
+            .wait_init_done(image_id, load_addr, size)
+            .await?;
+
+        Ok(LoadedImage {
+            image_size: size,
+            measurement: image_info.digest,
+        })
+    }
 }
 
 impl<'a, T: DmaTransfer> FlashImageLoader<'a, T> {
