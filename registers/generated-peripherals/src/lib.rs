@@ -1,6 +1,8 @@
 // Licensed under the Apache-2.0 license.
 #![no_std]
 
+pub mod aspeed_dramc;
+pub mod aspeed_ipc;
 pub mod aspeed_otp;
 pub mod aspeed_soc;
 pub mod aspeed_wdt;

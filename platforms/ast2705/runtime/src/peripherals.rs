@@ -5,16 +5,20 @@ use caliptra_mcu_config_ast2705::peri;
 use caliptra_mcu_tock_veer::timers::InternalTimers;
 use capsules_core::virtualizers::virtual_alarm::MuxAlarm;
 use kernel::utilities::StaticRef;
+use registers_peripherals::aspeed_dramc::SdramcRegisters;
 use registers_peripherals::uart16550::Uart16550Registers;
 
 // Peripheral base address definition
 pub const ASPEED_UART_BASE: StaticRef<Uart16550Registers> =
     unsafe { StaticRef::new(peri::ASPEED_UART_ADDR as *const Uart16550Registers) };
+pub const ASPEED_SDRAMC_BASE: StaticRef<SdramcRegisters> =
+    unsafe { StaticRef::new(peri::ASPEED_SDRAMC_ADDR as *const SdramcRegisters) };
 
 const BOOTMCU_DRAM_BASE: u64 = 0x8000_0000;
 
 pub struct Ast2705Peripherals<'a> {
     pub uart: Ast2705Uart16550<'a>,
+    pub dramc: caliptra_mcu_dramc_ast2705::DramCtrl,
     pub ipc: caliptra_mcu_aspeed_ipc::AspeedIpcCtrl,
     pub primary_flash_ctrl: caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashCtrl<'a>,
     pub secondary_flash_ctrl: caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashCtrl<'a>,
@@ -27,6 +31,10 @@ impl<'a> Ast2705Peripherals<'a> {
     pub fn new(alarm: &'a MuxAlarm<'a, InternalTimers<'a>>) -> Self {
         Self {
             uart: Ast2705Uart16550::new(ASPEED_UART_BASE),
+            dramc: caliptra_mcu_dramc_ast2705::DramCtrl::new(
+                ASPEED_SDRAMC_BASE,
+                peri::ASPEED_DRAM_PHY_ADDR,
+            ),
             ipc: caliptra_mcu_aspeed_ipc::AspeedIpcCtrl::new(
                 peri::ASPEED_IPC_TX_ADDR,
                 peri::ASPEED_IPC_RX_ADDR,

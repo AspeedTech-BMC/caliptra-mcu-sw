@@ -1342,6 +1342,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "caliptra-mcu-dramc-ast2705"
+version = "0.1.0"
+dependencies = [
+ "caliptra-mcu-capsules-runtime",
+ "caliptra-mcu-romtime",
+ "kernel",
+ "registers-peripherals",
+]
+
+[[package]]
 name = "caliptra-mcu-emulator"
 version = "0.1.0"
 dependencies = [
@@ -5573,6 +5583,7 @@ dependencies = [
  "caliptra-mcu-dma-driver",
  "caliptra-mcu-doe-mbox-driver",
  "caliptra-mcu-doe-transport",
+ "caliptra-mcu-dramc-ast2705",
  "caliptra-mcu-external-otp-driver",
  "caliptra-mcu-external-otp-emulator",
  "caliptra-mcu-flash-ctrl-ast2705",

@@ -4,7 +4,8 @@
 const ASPEED_SOC_ADDR: u32 = 0x1000_0000;
 
 /* CPU die peripheral address */
-const ASPEED_UART4_ADDR: u32 = 0x32c1_a000;
+pub const ASPEED_SDRAMC_ADDR: u32 = 0x32c0_0000;
+pub const ASPEED_DRAM_PHY_ADDR: u32 = 0x3300_0000;
 
 /* IO die peripheral address */
 const ASPEED_SCU1_ADDR: u32 = 0x34c0_2000;

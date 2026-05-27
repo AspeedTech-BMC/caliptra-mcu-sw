@@ -129,6 +129,7 @@ members = [
     "runtime/kernel/drivers/ipc",
     "platforms/ast2705/config",
     "platforms/ast2705/runtime",
+    "platforms/ast2705/runtime/kernel/drivers/dramc",
     "platforms/ast2705/runtime/kernel/drivers/flash_ctrl",
     "platforms/ast2705/runtime/kernel/capsules",
     "platforms/ast2705/runtime/userspace/apps/user",
@@ -466,6 +467,7 @@ caliptra-mcu-aspeed-ipc = { path = "runtime/kernel/drivers/ipc" }
 caliptra-mcu-capsules-ast2705 = { path = "platforms/ast2705/runtime/kernel/capsules" }
 caliptra-mcu-config-ast2705 = { path = "platforms/ast2705/config" }
 caliptra-mcu-libapi-ast2705-caliptra = { path = "platforms/ast2705/runtime/userspace/api/caliptra-api" }
+caliptra-mcu-dramc-ast2705 = { path = "platforms/ast2705/runtime/kernel/drivers/dramc" }
 caliptra-mcu-flash-ctrl-ast2705 = { path = "platforms/ast2705/runtime/kernel/drivers/flash_ctrl"}
 registers-peripherals = { path = "registers/generated-peripherals" }
 
