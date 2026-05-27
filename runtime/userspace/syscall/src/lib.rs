@@ -2,6 +2,7 @@
 
 #![no_std]
 
+pub mod bootdev;
 pub mod caliptra;
 pub mod dma;
 pub mod doe;
