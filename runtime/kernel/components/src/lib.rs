@@ -2,6 +2,7 @@
 
 #![no_std]
 
+pub mod bootdev;
 pub mod dma;
 pub mod doe;
 pub mod dpe_handle_store;

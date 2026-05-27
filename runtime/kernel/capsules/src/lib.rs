@@ -22,6 +22,7 @@ macro_rules! capsule_debug {
 
 pub mod test;
 
+pub mod bootdev;
 pub mod caliptra;
 pub mod dma;
 pub mod doe;

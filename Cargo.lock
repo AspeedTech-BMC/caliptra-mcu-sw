@@ -1182,6 +1182,7 @@ dependencies = [
 name = "caliptra-mcu-components"
 version = "0.1.0"
 dependencies = [
+ "arrayvec",
  "caliptra-mcu-capsules-emulator",
  "caliptra-mcu-capsules-runtime",
  "caliptra-mcu-config",
