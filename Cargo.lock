@@ -2631,6 +2631,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "caliptra-mcu-scu-ast1040"
+version = "0.1.0"
+dependencies = [
+ "caliptra-mcu-capsules-runtime",
+ "caliptra-mcu-romtime",
+ "kernel",
+ "registers-peripherals",
+]
+
+[[package]]
 name = "caliptra-mcu-scu-ast2705"
 version = "0.1.0"
 dependencies = [
@@ -5772,6 +5782,7 @@ dependencies = [
  "caliptra-mcu-platforms-common",
  "caliptra-mcu-registers-generated",
  "caliptra-mcu-romtime",
+ "caliptra-mcu-scu-ast1040",
  "caliptra-mcu-tock-veer",
  "capsules-core",
  "capsules-extra",

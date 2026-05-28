@@ -1,0 +1,13 @@
+# Licensed under the Apache-2.0 license
+
+[package]
+name = "caliptra-mcu-scu-ast1040"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+
+[dependencies]
+caliptra-mcu-capsules-runtime.workspace = true
+caliptra-mcu-romtime.workspace = true
+kernel.workspace = true
+registers-peripherals = { workspace = true, features = ["ast1040-register"] }

@@ -3,6 +3,7 @@
 use crate::peripherals::Ast1040Peripherals;
 use crate::MCU_MEMORY_MAP;
 use arrayvec::ArrayVec;
+use caliptra_mcu_capsules_runtime::bootdev::hil::ImageFlash;
 #[cfg(feature = "doe")]
 use caliptra_mcu_capsules_runtime::doe::driver::DoeDriver;
 #[cfg(any(
@@ -21,6 +22,7 @@ use caliptra_mcu_capsules_runtime::flash_partition::FlashPartition;
 use caliptra_mcu_capsules_runtime::mctp::base_protocol::MessageType;
 #[cfg(feature = "mcu-mbox-service")]
 use caliptra_mcu_capsules_runtime::mcu_mbox::McuMboxDriver;
+use caliptra_mcu_components::bootdev_component_static;
 #[cfg(feature = "doe")]
 use caliptra_mcu_components::doe_component_static;
 #[cfg(feature = "userspace-log")]
@@ -53,11 +55,12 @@ use caliptra_mcu_components::{flash_partition_component_static, instantiate_flas
 use caliptra_mcu_config_ast1040::flash::AST1040_EXT_OTP_PARTITION;
 #[cfg(feature = "crash-log")]
 use caliptra_mcu_config_ast1040::flash::CRASH_LOG_PARTITION;
+use caliptra_mcu_config_ast1040::flash::IMAGE_A_PARTITION;
 #[cfg(feature = "userspace-log")]
 use caliptra_mcu_config_ast1040::flash::LOGGING_PARTITION;
 #[cfg(any(feature = "flash-boot", feature = "firmware-update"))]
 use caliptra_mcu_config_ast1040::flash::{
-    CERT_STORE_PARTITION, IMAGE_A_PARTITION, IMAGE_B_PARTITION, PARTITION_TABLE, STAGING_PARTITION,
+    CERT_STORE_PARTITION, IMAGE_B_PARTITION, PARTITION_TABLE, STAGING_PARTITION,
 };
 #[cfg(feature = "userspace-log")]
 use caliptra_mcu_config_ast1040::logging_flash_list;
@@ -168,6 +171,7 @@ pub static mut PIC: Pic = Pic::new(MCU_MEMORY_MAP.pic_offset);
 /// A structure representing this platform that holds references to all
 /// capsules for this platform.
 struct VeeR {
+    bootdev: &'static caliptra_mcu_capsules_runtime::bootdev::BootDevCapsule<'static>,
     alarm: &'static capsules_core::alarm::AlarmDriver<
         'static,
         VirtualMuxAlarm<'static, InternalTimers<'static>>,
@@ -232,6 +236,7 @@ impl SyscallDriverLookup for VeeR {
         F: FnOnce(Option<&dyn kernel::syscall::SyscallDriver>) -> R,
     {
         match driver_num {
+            caliptra_mcu_capsules_runtime::bootdev::DRIVER_NUM => f(Some(self.bootdev)),
             capsules_core::alarm::DRIVER_NUM => f(Some(self.alarm)),
             capsules_core::console::DRIVER_NUM => f(self
                 .console
@@ -633,13 +638,93 @@ pub unsafe fn main() {
     let mci_regs = unsafe {
         caliptra_mcu_romtime::StaticRef::new(MCU_MEMORY_MAP.mci_offset as *const mci::regs::Mci)
     };
+
     let ast1040_peripherals = static_init!(Ast1040Peripherals, Ast1040Peripherals::new(mux_alarm),);
-    ast1040_peripherals.init();
+    let hyperram_status = ast1040_peripherals
+        .init()
+        .unwrap_or_else(|err| panic!("HyperRAM initialization failed: {:?}", err));
+    caliptra_mcu_romtime::println!(
+        "[mcu-runtime] HyperRAM initialization: {:?}",
+        hyperram_status
+    );
+
     AST1040_PERIPHERALS = Some(ast1040_peripherals);
 
     kernel::deferred_call::DeferredCallClient::register(&ast1040_peripherals.primary_flash_ctrl);
     kernel::deferred_call::DeferredCallClient::register(&ast1040_peripherals.secondary_flash_ctrl);
     kernel::deferred_call::DeferredCallClient::register(&ast1040_peripherals.uart);
+
+    // Create muxes for the two physical flash controllers; shared by the
+    // boot-device backends here and the flash partitions created below.
+    let mux_primary_flash =
+        components::flash::FlashMuxComponent::new(&ast1040_peripherals.primary_flash_ctrl)
+            .finalize(components::flash_mux_component_static!(
+                caliptra_mcu_flash_ctrl_ast1040::Ast1040FlashCtrl
+            ));
+
+    #[cfg(any(feature = "flash-boot", feature = "firmware-update"))]
+    let mux_secondary_flash =
+        components::flash::FlashMuxComponent::new(&ast1040_peripherals.secondary_flash_ctrl)
+            .finalize(components::flash_mux_component_static!(
+                caliptra_mcu_flash_ctrl_ast1040::Ast1040FlashCtrl
+            ));
+
+    // Boot-device flash backend: a FlashUser on the mux + the native
+    // FlashStorageToPages read engine, same stack as a flash partition
+    // minus the partition syscall capsule. The bootdev capsule reaches the
+    // flash only through MuxFlash arbitration.
+    let bootdev_primary_fl_user = components::flash::FlashUserComponent::new(mux_primary_flash)
+        .finalize(components::flash_user_component_static!(
+            caliptra_mcu_flash_ctrl_ast1040::Ast1040FlashCtrl
+        ));
+    let bootdev_primary_page = static_init!(
+        caliptra_mcu_flash_ctrl_ast1040::Ast1040FlashPage,
+        caliptra_mcu_flash_ctrl_ast1040::Ast1040FlashPage::default()
+    );
+    let bootdev_primary_storage = static_init!(
+        caliptra_mcu_flash_driver::flash_storage_to_pages::FlashStorageToPages<
+            'static,
+            virtual_flash::FlashUser<
+                'static,
+                caliptra_mcu_flash_ctrl_ast1040::Ast1040FlashCtrl<'static>,
+            >,
+        >,
+        caliptra_mcu_flash_driver::flash_storage_to_pages::FlashStorageToPages::new(
+            bootdev_primary_fl_user,
+            bootdev_primary_page,
+            caliptra_mcu_flash_ctrl_ast1040::ERASE_SECTOR_SIZE,
+        )
+    );
+    hil::flash::HasClient::set_client(bootdev_primary_fl_user, bootdev_primary_storage);
+    // Bound to the image_a partition window: userspace read addresses are
+    // partition-relative (0 = FLSH package start). The image_b backend (on
+    // the secondary flash) will be added alongside later.
+    let bootdev_primary_flash = static_init!(
+        caliptra_mcu_capsules_runtime::bootdev::flash::BootDevFlash<'static>,
+        caliptra_mcu_capsules_runtime::bootdev::flash::BootDevFlash::new(
+            bootdev_primary_storage,
+            IMAGE_A_PARTITION.offset,
+            IMAGE_A_PARTITION.size
+        )
+    );
+    caliptra_mcu_flash_driver::hil::FlashStorage::set_client(
+        bootdev_primary_storage,
+        bootdev_primary_flash,
+    );
+
+    let mut flash_devs = ArrayVec::<&'static dyn ImageFlash, 2>::new();
+    flash_devs.push(&ast1040_peripherals.ipc);
+    flash_devs.push(bootdev_primary_flash);
+    let bootdev = caliptra_mcu_components::bootdev::BootDevComponent::new(
+        flash_devs,
+        board_kernel,
+        caliptra_mcu_capsules_runtime::bootdev::DRIVER_NUM,
+    )
+    .finalize(bootdev_component_static!());
+    // Split-phase reads report completion (READ_DONE) through the capsule.
+    ImageFlash::set_client(bootdev_primary_flash, bootdev);
+
+    _ = ast1040_peripherals.scu.init(bootdev);
 
     let peripherals = static_init!(
         VeeRDefaultPeripherals,
@@ -835,13 +920,6 @@ pub unsafe fn main() {
 
     peripherals.init();
 
-    // Create a mux for the physical flash controller
-    let mux_primary_flash =
-        components::flash::FlashMuxComponent::new(&ast1040_peripherals.primary_flash_ctrl)
-            .finalize(components::flash_mux_component_static!(
-                caliptra_mcu_flash_ctrl_ast1040::Ast1040FlashCtrl
-            ));
-
     #[cfg(any(feature = "flash-boot", feature = "firmware-update"))]
     let mut flash_partitions: [Option<&'static FlashPartition<'static>>;
         caliptra_mcu_config_ast1040::flash::FLASH_PARTITIONS_COUNT] =
@@ -856,14 +934,6 @@ pub unsafe fn main() {
         caliptra_mcu_flash_ctrl_ast1040::Ast1040FlashCtrl,
         caliptra_mcu_flash_ctrl_ast1040::ERASE_SECTOR_SIZE
     );
-
-    // Create a mux for the recovery flash controller
-    #[cfg(any(feature = "flash-boot", feature = "firmware-update"))]
-    let mux_secondary_flash =
-        components::flash::FlashMuxComponent::new(&ast1040_peripherals.secondary_flash_ctrl)
-            .finalize(components::flash_mux_component_static!(
-                caliptra_mcu_flash_ctrl_ast1040::Ast1040FlashCtrl
-            ));
 
     #[cfg(any(feature = "flash-boot", feature = "firmware-update"))]
     instantiate_flash_partitions!(
@@ -910,7 +980,7 @@ pub unsafe fn main() {
     );
 
     // No usable AxiDMA on this platform: back the DMA syscall with the
-    // CPU-copy engine (same HAL; swap back to &ast1040_peri.dma when a
+    // CPU-copy engine (same HAL; swap back to &ast1040_peripherals.dma when a
     // hardware DMA engine is available).
     let nodma = static_init!(
         caliptra_mcu_dma_common::nodma::NoDMA,
@@ -1072,6 +1142,7 @@ pub unsafe fn main() {
     let veer = static_init!(
         VeeR,
         VeeR {
+            bootdev,
             alarm,
             console,
             lldb,

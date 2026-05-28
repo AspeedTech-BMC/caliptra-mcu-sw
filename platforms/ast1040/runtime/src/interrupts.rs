@@ -2,7 +2,6 @@
 
 use crate::peripherals::Ast1040Peripherals;
 use kernel::platform::chip::InterruptService;
-
 pub const DMA_EVENT_IRQ: u8 = 0x17;
 pub const DMA_ERROR_IRQ: u8 = 0x18;
 pub const IPC0_IRQ: u8 = 0x21;

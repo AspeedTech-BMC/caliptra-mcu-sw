@@ -6,11 +6,14 @@ use caliptra_mcu_tock_veer::timers::InternalTimers;
 use capsules_core::virtualizers::virtual_alarm::MuxAlarm;
 use kernel::utilities::StaticRef;
 use registers_peripherals::aspeed_spi::AspeedSpiRegisters;
+use registers_peripherals::ast1040::aspeed_scu1::SCU1Registers;
 use registers_peripherals::uart16550::Uart16550Registers;
 
 // Peripheral base address definition
 pub const ASPEED_UART_BASE: StaticRef<Uart16550Registers> =
     unsafe { StaticRef::new(peri::ASPEED_UART_ADDR as *const Uart16550Registers) };
+pub const ASPEED_SCU_BASE: StaticRef<SCU1Registers> =
+    unsafe { StaticRef::new(peri::ASPEED_SCU_ADDR as *const SCU1Registers) };
 const PRIMARY_FLASH_CTRL_BASE: StaticRef<AspeedSpiRegisters> =
     unsafe { StaticRef::new(peri::ASPEED_FMC_CTRL_ADDR as *const AspeedSpiRegisters) };
 const SECONDARY_FLASH_CTRL_BASE: StaticRef<AspeedSpiRegisters> =
@@ -18,6 +21,7 @@ const SECONDARY_FLASH_CTRL_BASE: StaticRef<AspeedSpiRegisters> =
 
 pub struct Ast1040Peripherals<'a> {
     pub uart: Ast1040Uart16550<'a>,
+    pub scu: caliptra_mcu_scu_ast1040::Ast1040ScuCtrl,
     pub primary_flash_ctrl: caliptra_mcu_flash_ctrl_ast1040::Ast1040FlashCtrl<'a>,
     pub secondary_flash_ctrl: caliptra_mcu_flash_ctrl_ast1040::Ast1040FlashCtrl<'a>,
     pub ipc: caliptra_mcu_aspeed_ipc::AspeedIpcCtrl,
@@ -30,6 +34,7 @@ impl<'a> Ast1040Peripherals<'a> {
     pub fn new(alarm: &'a MuxAlarm<'a, InternalTimers<'a>>) -> Self {
         Self {
             uart: Ast1040Uart16550::new(ASPEED_UART_BASE),
+            scu: caliptra_mcu_scu_ast1040::Ast1040ScuCtrl::new(ASPEED_SCU_BASE),
             primary_flash_ctrl: caliptra_mcu_flash_ctrl_ast1040::Ast1040FlashCtrl::new(
                 PRIMARY_FLASH_CTRL_BASE,
             ),
