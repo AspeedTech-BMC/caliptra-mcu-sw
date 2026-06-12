@@ -27,6 +27,8 @@ mod tests;
 #[cfg(target_arch = "riscv32")]
 pub use board::*;
 
+pub mod aspeed_pci;
+
 use caliptra_mcu_config::McuMemoryMap;
 
 // re-export this so the common runtime code can use it

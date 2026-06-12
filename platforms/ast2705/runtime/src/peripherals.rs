@@ -1,5 +1,6 @@
 // Licensed under the Apache-2.0 license
 
+use crate::aspeed_pci::{pci_init, AspeedPciConfig, PciePortConfig};
 use crate::io::Ast2705Uart16550;
 use caliptra_mcu_config_ast2705::peri;
 use caliptra_mcu_tock_veer::timers::InternalTimers;
@@ -72,5 +73,22 @@ impl<'a> Ast2705Peripherals<'a> {
         self.dma.init();
         #[cfg(any(feature = "doe", feature = "test-doe-transport-loopback"))]
         self.doe_transport.init();
+
+        let port_cfg = PciePortConfig {
+            has_vga: true,
+            has_bmc_device: true,
+            has_ehci: true,
+            has_xhci: true,
+            vga_msi: true,
+            bmc_device_msi: true,
+            ehci_msi: false,
+            xhci_msi: false,
+        };
+        let pci_cfg = AspeedPciConfig {
+            pcie0: port_cfg,
+            pcie1: port_cfg,
+            pcie1_alt: false,
+        };
+        pci_init(&pci_cfg);
     }
 }
