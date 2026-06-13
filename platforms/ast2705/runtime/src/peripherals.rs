@@ -9,6 +9,9 @@ use kernel::utilities::StaticRef;
 use registers_peripherals::aspeed_dramc::SdramcRegisters;
 use registers_peripherals::aspeed_soc::SoCRegisters;
 use registers_peripherals::aspeed_spi::AspeedSpiRegisters;
+use registers_peripherals::ast2705::aspeed_dpmcu::{
+    DpMcuRegisters, DpRegisters, DP_BASE, MCU_REG_BASE,
+};
 use registers_peripherals::ast2705::aspeed_scu0::SCU0Registers;
 use registers_peripherals::uart16550::Uart16550Registers;
 
@@ -25,6 +28,10 @@ const PRIMARY_FLASH_CTRL_BASE: StaticRef<AspeedSpiRegisters> =
     unsafe { StaticRef::new(peri::ASPEED_FMC_CTRL_ADDR as *const AspeedSpiRegisters) };
 const SECONDARY_FLASH_CTRL_BASE: StaticRef<AspeedSpiRegisters> =
     unsafe { StaticRef::new(peri::ASPEED_FMC_CTRL_ADDR as *const AspeedSpiRegisters) };
+pub const ASPEED_DPMCU_REG_BASE: StaticRef<DpMcuRegisters> =
+    unsafe { StaticRef::new(MCU_REG_BASE as *const DpMcuRegisters) };
+pub const ASPEED_DP_BASE: StaticRef<DpRegisters> =
+    unsafe { StaticRef::new(DP_BASE as *const DpRegisters) };
 
 const BOOTMCU_DRAM_BASE: u64 = 0x8000_0000;
 
@@ -33,6 +40,7 @@ pub struct Ast2705Peripherals<'a> {
     pub scu0: caliptra_mcu_scu_ast2705::AspeedScuCtrl,
     pub uart: Ast2705Uart16550<'a>,
     pub dramc: caliptra_mcu_dramc_ast2705::DramCtrl,
+    pub dp: caliptra_mcu_dp_ast2705::AspeedDpCtrl,
     pub ipc: caliptra_mcu_aspeed_ipc::AspeedIpcCtrl,
     pub primary_flash_ctrl: caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashCtrl<'a>,
     pub secondary_flash_ctrl: caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashCtrl<'a>,
@@ -50,6 +58,11 @@ impl<'a> Ast2705Peripherals<'a> {
             dramc: caliptra_mcu_dramc_ast2705::DramCtrl::new(
                 ASPEED_SDRAMC_BASE,
                 peri::ASPEED_DRAM_PHY_ADDR,
+            ),
+            dp: caliptra_mcu_dp_ast2705::AspeedDpCtrl::new(
+                ASPEED_DPMCU_REG_BASE,
+                ASPEED_DP_BASE,
+                ASPEED_SCU0_BASE,
             ),
             ipc: caliptra_mcu_aspeed_ipc::AspeedIpcCtrl::new(
                 peri::ASPEED_IPC_TX_ADDR,

@@ -712,6 +712,7 @@ pub unsafe fn main() {
     ImageFlash::set_client(bootdev_primary_flash, bootdev);
 
     // Periperhals init with boot device
+    _ = ast2705_peripherals.dp.init(bootdev);
     _ = ast2705_peripherals.dramc.init(bootdev);
     _ = ast2705_peripherals.scu0.init(bootdev);
 

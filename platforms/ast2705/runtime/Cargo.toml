@@ -43,6 +43,7 @@ caliptra-mcu-aspeed-soc.workspace = true
 caliptra-mcu-capsules-ast2705.workspace = true
 caliptra-mcu-config-ast2705.workspace = true
 caliptra-mcu-dma-common.workspace = true
+caliptra-mcu-dp-ast2705.workspace = true
 caliptra-mcu-dramc-ast2705.workspace = true
 caliptra-mcu-flash-ctrl-ast2705.workspace = true
 caliptra-mcu-scu-ast2705.workspace = true
