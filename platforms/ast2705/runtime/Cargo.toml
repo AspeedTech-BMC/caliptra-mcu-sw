@@ -47,6 +47,7 @@ caliptra-mcu-dp-ast2705.workspace = true
 caliptra-mcu-dramc-ast2705.workspace = true
 caliptra-mcu-flash-ctrl-ast2705.workspace = true
 caliptra-mcu-scu-ast2705.workspace = true
+caliptra-mcu-sli-ast2705.workspace = true
 registers-peripherals.workspace = true
 
 [features]

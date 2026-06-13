@@ -1,0 +1,18 @@
+# Licensed under the Apache-2.0 license
+
+[package]
+name = "caliptra-mcu-sli-ast2705"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+
+[features]
+# Enable verbose calibration log: found windows, chosen delays, per-lane results.
+debug-log = []
+
+[dependencies]
+kernel.workspace = true
+caliptra-mcu-capsules-runtime.workspace = true
+caliptra-mcu-romtime.workspace = true
+caliptra-mcu-dp-ast2705.workspace = true
+registers-peripherals = { workspace = true, features = ["ast2705-register"] }

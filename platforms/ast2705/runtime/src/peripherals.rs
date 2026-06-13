@@ -13,6 +13,7 @@ use registers_peripherals::ast2705::aspeed_dpmcu::{
     DpMcuRegisters, DpRegisters, DP_BASE, MCU_REG_BASE,
 };
 use registers_peripherals::ast2705::aspeed_scu0::SCU0Registers;
+use registers_peripherals::ast2705::aspeed_scu1::SCU1Registers;
 use registers_peripherals::uart16550::Uart16550Registers;
 
 // Peripheral base address definition
@@ -28,6 +29,8 @@ const PRIMARY_FLASH_CTRL_BASE: StaticRef<AspeedSpiRegisters> =
     unsafe { StaticRef::new(peri::ASPEED_FMC_CTRL_ADDR as *const AspeedSpiRegisters) };
 const SECONDARY_FLASH_CTRL_BASE: StaticRef<AspeedSpiRegisters> =
     unsafe { StaticRef::new(peri::ASPEED_FMC_CTRL_ADDR as *const AspeedSpiRegisters) };
+pub const ASPEED_SCU1_BASE: StaticRef<SCU1Registers> =
+    unsafe { StaticRef::new(peri::ASPEED_SCU1_ADDR as *const SCU1Registers) };
 pub const ASPEED_DPMCU_REG_BASE: StaticRef<DpMcuRegisters> =
     unsafe { StaticRef::new(MCU_REG_BASE as *const DpMcuRegisters) };
 pub const ASPEED_DP_BASE: StaticRef<DpRegisters> =
@@ -38,6 +41,7 @@ const BOOTMCU_DRAM_BASE: u64 = 0x8000_0000;
 pub struct Ast2705Peripherals<'a> {
     pub soc: caliptra_mcu_aspeed_soc::AspeedSoCCtrl,
     pub scu0: caliptra_mcu_scu_ast2705::AspeedScuCtrl,
+    pub sli: caliptra_mcu_sli_ast2705::AspeedSliCtrl,
     pub uart: Ast2705Uart16550<'a>,
     pub dramc: caliptra_mcu_dramc_ast2705::DramCtrl,
     pub dp: caliptra_mcu_dp_ast2705::AspeedDpCtrl,
@@ -54,6 +58,11 @@ impl<'a> Ast2705Peripherals<'a> {
         Self {
             soc: caliptra_mcu_aspeed_soc::AspeedSoCCtrl::new(ASPEED_SOC_BASE),
             scu0: caliptra_mcu_scu_ast2705::AspeedScuCtrl::new(ASPEED_SCU0_BASE),
+            sli: caliptra_mcu_sli_ast2705::AspeedSliCtrl::new(
+                ASPEED_SCU0_BASE,
+                ASPEED_SCU1_BASE,
+                caliptra_mcu_sli_ast2705::TxClk::Ghz1,
+            ),
             uart: Ast2705Uart16550::new(ASPEED_UART_BASE),
             dramc: caliptra_mcu_dramc_ast2705::DramCtrl::new(
                 ASPEED_SDRAMC_BASE,

@@ -126,7 +126,6 @@ members = [
     "tools/pk-hash-checker",
     "xtask",
     # Aspeed specific members
-    "runtime/kernel/drivers/dma",
     "runtime/kernel/drivers/ipc",
     "runtime/kernel/drivers/soc",
     "platforms/ast2705/config",
@@ -135,6 +134,7 @@ members = [
     "platforms/ast2705/runtime/kernel/drivers/dramc",
     "platforms/ast2705/runtime/kernel/drivers/flash_ctrl",
     "platforms/ast2705/runtime/kernel/drivers/scu",
+    "platforms/ast2705/runtime/kernel/drivers/sli",
     "platforms/ast2705/runtime/kernel/capsules",
     "platforms/ast2705/runtime/userspace/apps/user",
     "registers/generated-peripherals",
@@ -477,6 +477,7 @@ caliptra-mcu-dp-ast2705 = { path = "platforms/ast2705/runtime/kernel/drivers/dp"
 caliptra-mcu-dramc-ast2705 = { path = "platforms/ast2705/runtime/kernel/drivers/dramc" }
 caliptra-mcu-flash-ctrl-ast2705 = { path = "platforms/ast2705/runtime/kernel/drivers/flash_ctrl"}
 caliptra-mcu-scu-ast2705 = { path = "platforms/ast2705/runtime/kernel/drivers/scu" }
+caliptra-mcu-sli-ast2705 = { path = "platforms/ast2705/runtime/kernel/drivers/sli" }
 registers-peripherals = { path = "registers/generated-peripherals" }
 
 # Always optimize the emulator during tests, as it is a major bottleneck for
