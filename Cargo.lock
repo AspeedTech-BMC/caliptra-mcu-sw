@@ -1038,6 +1038,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "caliptra-mcu-aspeed-soc"
+version = "0.1.0"
+dependencies = [
+ "kernel",
+ "registers-peripherals",
+]
+
+[[package]]
 name = "caliptra-mcu-attestation-evidence"
 version = "0.1.0"
 dependencies = [
@@ -5584,6 +5592,7 @@ version = "0.1.0"
 dependencies = [
  "arrayvec",
  "caliptra-mcu-aspeed-ipc",
+ "caliptra-mcu-aspeed-soc",
  "caliptra-mcu-capsules-ast2705",
  "caliptra-mcu-capsules-emulator",
  "caliptra-mcu-capsules-runtime",

@@ -127,6 +127,7 @@ members = [
     "xtask",
     # Aspeed specific members
     "runtime/kernel/drivers/ipc",
+    "runtime/kernel/drivers/soc",
     "platforms/ast2705/config",
     "platforms/ast2705/runtime",
     "platforms/ast2705/runtime/kernel/drivers/dramc",
@@ -465,6 +466,7 @@ tock-registers = { git = "https://github.com/tock/tock.git", rev = "release-2.2"
 
 # local aspeed dependencies
 caliptra-mcu-aspeed-ipc = { path = "runtime/kernel/drivers/ipc" }
+caliptra-mcu-aspeed-soc = { path = "runtime/kernel/drivers/soc" }
 caliptra-mcu-capsules-ast2705 = { path = "platforms/ast2705/runtime/kernel/capsules" }
 caliptra-mcu-config-ast2705 = { path = "platforms/ast2705/config" }
 caliptra-mcu-libapi-ast2705-caliptra = { path = "platforms/ast2705/runtime/userspace/api/caliptra-api" }

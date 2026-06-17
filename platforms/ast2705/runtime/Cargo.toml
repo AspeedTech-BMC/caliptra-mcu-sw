@@ -39,6 +39,7 @@ rv32i.workspace = true
 
 # Aspeed dependencies
 caliptra-mcu-aspeed-ipc.workspace = true
+caliptra-mcu-aspeed-soc.workspace = true
 caliptra-mcu-capsules-ast2705.workspace = true
 caliptra-mcu-config-ast2705.workspace = true
 caliptra-mcu-dramc-ast2705.workspace = true
