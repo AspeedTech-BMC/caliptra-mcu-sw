@@ -28,6 +28,10 @@ impl Ast1040ScuCtrl {
     fn init_psp(&self) {
         let scu = &self.scu;
 
+        scu.psp_ctrl1.modify(
+            PspCtrl1::SRAM_SLP::CLEAR + PspCtrl1::SRAM_DSLP::CLEAR + PspCtrl1::SRAM_SD::CLEAR,
+        );
+
         // I-cache block enable: all 32 regions cacheable
         scu.psp_icache.set(0xffff_ffff);
 
