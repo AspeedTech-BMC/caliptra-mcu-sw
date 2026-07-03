@@ -16,11 +16,19 @@ use registers_peripherals::ast2705::aspeed_scu0::{SCU0Registers, VgaFuncCtrl, Vg
 /// Caliptra DPMCU firmware image identifier.
 pub const DP_FW: u32 = 0x1006;
 
+/// Callback invoked once the DP subsystem has finished initializing —
+/// either the DPMCU firmware has been loaded and started, or the DPMCU
+/// was already running and no (re)load was necessary.
+pub trait DpReadyClient {
+    fn dp_ready(&self);
+}
+
 pub struct AspeedDpCtrl {
     mcu: StaticRef<DpMcuRegisters>,
     dp: StaticRef<DpRegisters>,
     scu0: StaticRef<SCU0Registers>,
     bootdev: OptionalCell<&'static dyn KernelImageLoader>,
+    ready_client: OptionalCell<&'static dyn DpReadyClient>,
 }
 
 impl AspeedDpCtrl {
@@ -34,7 +42,14 @@ impl AspeedDpCtrl {
             dp,
             scu0,
             bootdev: OptionalCell::empty(),
+            ready_client: OptionalCell::empty(),
         }
+    }
+
+    /// Register a client to be notified once DP initialization completes
+    /// (see [`DpReadyClient`]).
+    pub fn set_client(&self, client: &'static dyn DpReadyClient) {
+        self.ready_client.set(client);
     }
 
     /// Initialize the DisplayPort subsystem.
@@ -117,6 +132,7 @@ impl AspeedDpCtrl {
             caliptra_mcu_romtime::println!("[dp] already running");
             // DPMCU was already running — just mark both scratch registers
             self.update_vga_scratch();
+            self.ready_client.map(|c| c.dp_ready());
         }
 
         Ok(())
@@ -166,6 +182,8 @@ impl KernelImageClient for AspeedDpCtrl {
 
         // Update VGA scratch registers to reflect DPMCU is now handling display.
         self.update_vga_scratch();
+
+        self.ready_client.map(|c| c.dp_ready());
 
         if let Some(b) = self.bootdev.get() {
             b.notify_init_done(DP_FW, true);

@@ -714,7 +714,9 @@ pub unsafe fn main() {
     // Periperhals init with boot device
     ast2705_peripherals.sli.init_f();
     _ = ast2705_peripherals.dp.init(bootdev);
-    ast2705_peripherals.sli.init_r();
+    // sli.init_r(); depends on the DPMCU firmware being loaded, so it is
+    // deferred until dp signals readiness via image_ready().
+    ast2705_peripherals.dp.set_client(&ast2705_peripherals.sli);
     _ = ast2705_peripherals.dramc.init(bootdev);
     _ = ast2705_peripherals.scu0.init(bootdev);
 

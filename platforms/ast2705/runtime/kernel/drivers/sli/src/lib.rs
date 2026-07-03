@@ -64,7 +64,7 @@ impl<T: SliBlockCommon> SliBlockCommon for StaticRef<T> {
 }
 
 /// PHY TX clock frequency selection, matching `CtrlIIISlih::TxClkSel` values.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum TxClk {
     Mhz25 = 0,
     Mhz800 = 1,
@@ -209,7 +209,7 @@ impl AspeedSliCtrl {
             &self.scu1.sli_slim_ds_win_high,
         );
 
-        sli_log!("[sli] SLI1 calibration completed");
+        sli_log!("[sli] SLI1 calibration completed, tx_clk={:?}", self.tx_clk);
 
         // Reset the remote (CPU-die) SLIH and wait for it to re-suspend.
         sli_clear(&die0.slih, CtrlI::ClearBus::SET.value);
@@ -287,6 +287,14 @@ impl AspeedSliCtrl {
             &self.scu0.sli_sliv_ds_win,
             16,
         );
+    }
+}
+
+impl caliptra_mcu_dp_ast2705::DpReadyClient for AspeedSliCtrl {
+    /// IO-die video calibration (`init_r`) depends on the DPMCU firmware
+    /// being loaded and running, so it is deferred until DP signals ready.
+    fn dp_ready(&self) {
+        self.init_r();
     }
 }
 
