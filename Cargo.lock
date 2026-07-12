@@ -5608,6 +5608,7 @@ dependencies = [
  "caliptra-mcu-components",
  "caliptra-mcu-config",
  "caliptra-mcu-config-ast2705",
+ "caliptra-mcu-dma-common",
  "caliptra-mcu-dma-driver",
  "caliptra-mcu-doe-mbox-driver",
  "caliptra-mcu-doe-transport",

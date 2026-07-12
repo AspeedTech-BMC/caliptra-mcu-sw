@@ -147,7 +147,7 @@ pub async fn image_loading_task(soc_image_load_list: &'static [u32]) {
             mbox_sram.acquire_lock().unwrap();
         }
         match image_loading(
-            &EMULATED_DMA_MAPPING,
+            &AST2705_DMA_MAPPING,
             soc_image_load_list,
             mcu_fw_hitless_update_reset,
         )
@@ -226,7 +226,7 @@ pub async fn image_loading_task(soc_image_load_list: &'static [u32]) {
             mbox_sram.release_lock().unwrap();
             mbox_sram.acquire_lock().unwrap();
         }
-        match crate::firmware_update::firmware_update(&EMULATED_DMA_MAPPING, soc_image_load_list)
+        match crate::firmware_update::firmware_update(&AST2705_DMA_MAPPING, soc_image_load_list)
             .await
         {
             Ok(_) => System::exit(0),
@@ -236,7 +236,7 @@ pub async fn image_loading_task(soc_image_load_list: &'static [u32]) {
     }
 
     match image_loading(
-        &EMULATED_DMA_MAPPING,
+        &AST2705_DMA_MAPPING,
         soc_image_load_list,
         mcu_fw_hitless_update_reset,
     )
@@ -544,7 +544,7 @@ async fn hitless_attestation_firmware_update_task(soc_image_load_list: &'static 
         mbox_sram.release_lock().unwrap();
         mbox_sram.acquire_lock().unwrap();
     }
-    if crate::firmware_update::firmware_update(&EMULATED_DMA_MAPPING, soc_image_load_list)
+    if crate::firmware_update::firmware_update(&AST2705_DMA_MAPPING, soc_image_load_list)
         .await
         .is_err()
     {
@@ -592,28 +592,19 @@ async fn activate_soc_images(fw_id_list: &[u32]) -> Result<(), ErrorCode> {
     }
 }
 
-pub struct EmulatedDMAMap {}
-impl DMAMapping for EmulatedDMAMap {
+pub struct Ast2705DMAMap {}
+impl DMAMapping for Ast2705DMAMap {
     fn mcu_sram_to_mcu_axi(&self, addr: u32) -> Result<AXIAddr, ErrorCode> {
         Ok(addr as AXIAddr)
     }
 
     fn cptra_axi_to_mcu_axi(&self, addr: AXIAddr) -> Result<AXIAddr, ErrorCode> {
-        // Caliptra's External Test SRAM at 0x8000_0000 maps to
-        // the MCU's External SRAM at 0xB00C_0000 (same backing store via events).
-        const CPTRA_EXT_SRAM_BASE: u64 = 0x8000_0000;
-        const CPTRA_EXT_SRAM_SIZE: u64 = 0x0010_0000; // 1MB
-        const MCU_EXT_SRAM_BASE: u64 = 0xB00C_0000;
-        if (CPTRA_EXT_SRAM_BASE..CPTRA_EXT_SRAM_BASE + CPTRA_EXT_SRAM_SIZE).contains(&addr) {
-            Ok(MCU_EXT_SRAM_BASE + (addr - CPTRA_EXT_SRAM_BASE))
-        } else {
-            Ok(addr)
-        }
+        Ok(addr)
     }
 }
 
 #[allow(dead_code)]
-pub static EMULATED_DMA_MAPPING: EmulatedDMAMap = EmulatedDMAMap {};
+pub static AST2705_DMA_MAPPING: Ast2705DMAMap = Ast2705DMAMap {};
 
 pub struct FpgaDMAMap {}
 impl DMAMapping for FpgaDMAMap {

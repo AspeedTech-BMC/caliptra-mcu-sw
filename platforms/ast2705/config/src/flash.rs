@@ -22,7 +22,7 @@ pub const PARTITION_TABLE: FlashPartition = FlashPartition {
 
 pub const IMAGE_A_PARTITION: FlashPartition = FlashPartition {
     name: "image_a",
-    offset: BLOCK_SIZE,
+    offset: 0x10_0000,
     size: (BLOCK_SIZE * 0x32),
     driver_num: 0x7000_0006,
 };

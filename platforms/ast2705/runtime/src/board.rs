@@ -57,14 +57,13 @@ use caliptra_mcu_config_ast2705::flash::AST2705_EXT_OTP_PARTITION;
 use caliptra_mcu_config_ast2705::flash::CRASH_LOG_PARTITION;
 #[cfg(feature = "userspace-log")]
 use caliptra_mcu_config_ast2705::flash::LOGGING_PARTITION;
-#[cfg(any(feature = "flash-boot", feature = "firmware-update"))]
 use caliptra_mcu_config_ast2705::flash::{
     CERT_STORE_PARTITION, IMAGE_A_PARTITION, IMAGE_B_PARTITION, PARTITION_TABLE, STAGING_PARTITION,
 };
 #[cfg(feature = "userspace-log")]
 use caliptra_mcu_config_ast2705::logging_flash_list;
-#[cfg(any(feature = "flash-boot", feature = "firmware-update"))]
 use caliptra_mcu_config_ast2705::{flash_partition_list_primary, flash_partition_list_secondary};
+use caliptra_mcu_dma_driver::nodma;
 #[cfg(feature = "doe")]
 use caliptra_mcu_doe_mbox_driver::EmulatedDoeTransport;
 use caliptra_mcu_platforms_common::handoff::HandOff;
@@ -479,10 +478,12 @@ pub unsafe fn main() {
         execute: false,
     });
 
-    // TODO: Why is this not in the McuMemoryMap? What is this?
+    // DRAM window (SS/MCU 0xC000_0000 ~ 0x1_0000_0000): destination for
+    // boot-image loads (NoDMA copies to the manifest load addresses).
+    // Kernel read/write. Replaces an unused 0x2000_8000 MMIO region.
     platform_regions.push(PlatformRegion {
-        start_addr: 0x2000_8000 as *const u8,
-        size: 0x1000,
+        start_addr: 0xC000_0000 as *const u8,
+        size: 0x4000_0000,
         is_mmio: true,
         user_accessible: false,
         read: true,
@@ -512,10 +513,14 @@ pub unsafe fn main() {
         execute: false,
     });
 
-    // Logging flash region
+    // FMC flash content window (0x4000_0000 ~ 0x5000_0000): memory-mapped
+    // flash reads used by the flash controller driver for the bootdev /
+    // flash-partition paths. Read-only for the kernel. Replaces the unused
+    // logging flash region (the logging capsule is not wired on this board)
+    // to stay within the 9-region budget.
     platform_regions.push(PlatformRegion {
-        start_addr: addr_of!(_sstorage) as *const u8,
-        size: (addr_of!(_estorage) as usize - addr_of!(_sstorage) as usize),
+        start_addr: 0x4000_0000 as *const u8,
+        size: 0x1000_0000,
         is_mmio: true,
         user_accessible: false,
         read: true,
@@ -633,15 +638,78 @@ pub unsafe fn main() {
     ast2705_peripherals.init();
     AST2705_PERIPHERALS = Some(ast2705_peripherals);
 
+    // Flash controller read completions are delivered via deferred calls.
+    kernel::deferred_call::DeferredCallClient::register(&ast2705_peripherals.primary_flash_ctrl);
+    kernel::deferred_call::DeferredCallClient::register(&ast2705_peripherals.secondary_flash_ctrl);
+
+    // Create muxes for the two physical flash controllers; shared by the
+    // boot-device backends here and the flash partitions created below.
+    let mux_primary_flash =
+        components::flash::FlashMuxComponent::new(&ast2705_peripherals.primary_flash_ctrl)
+            .finalize(components::flash_mux_component_static!(
+                caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashCtrl
+            ));
+    let mux_secondary_flash =
+        components::flash::FlashMuxComponent::new(&ast2705_peripherals.secondary_flash_ctrl)
+            .finalize(components::flash_mux_component_static!(
+                caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashCtrl
+            ));
+
+    // Boot-device flash backend: a FlashUser on the mux + the native
+    // FlashStorageToPages read engine, same stack as a flash partition
+    // minus the partition syscall capsule. The bootdev capsule reaches the
+    // flash only through MuxFlash arbitration.
+    let bootdev_primary_fl_user = components::flash::FlashUserComponent::new(mux_primary_flash)
+        .finalize(components::flash_user_component_static!(
+            caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashCtrl
+        ));
+    let bootdev_primary_page = static_init!(
+        caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashPage,
+        caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashPage::default()
+    );
+    let bootdev_primary_storage = static_init!(
+        caliptra_mcu_flash_driver::flash_storage_to_pages::FlashStorageToPages<
+            'static,
+            virtual_flash::FlashUser<
+                'static,
+                caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashCtrl<'static>,
+            >,
+        >,
+        caliptra_mcu_flash_driver::flash_storage_to_pages::FlashStorageToPages::new(
+            bootdev_primary_fl_user,
+            bootdev_primary_page,
+            caliptra_mcu_flash_ctrl_ast2705::ERASE_SECTOR_SIZE,
+        )
+    );
+    hil::flash::HasClient::set_client(bootdev_primary_fl_user, bootdev_primary_storage);
+    // Bound to the image_a partition window: userspace read addresses are
+    // partition-relative (0 = FLSH package start). The image_b backend (on
+    // the secondary flash) will be added alongside later.
+    let bootdev_primary_flash = static_init!(
+        caliptra_mcu_capsules_runtime::bootdev::flash::BootDevFlash<'static>,
+        caliptra_mcu_capsules_runtime::bootdev::flash::BootDevFlash::new(
+            bootdev_primary_storage,
+            IMAGE_A_PARTITION.offset,
+            IMAGE_A_PARTITION.size
+        )
+    );
+    caliptra_mcu_flash_driver::hil::FlashStorage::set_client(
+        bootdev_primary_storage,
+        bootdev_primary_flash,
+    );
+
     // Boot device components registered
-    let mut flash_devs = ArrayVec::<&'static dyn ImageFlash, 1>::new();
+    let mut flash_devs = ArrayVec::<&'static dyn ImageFlash, 2>::new();
     flash_devs.push(&ast2705_peripherals.ipc);
+    flash_devs.push(bootdev_primary_flash);
     let bootdev = caliptra_mcu_components::bootdev::BootDevComponent::new(
         flash_devs,
         board_kernel,
         caliptra_mcu_capsules_runtime::bootdev::DRIVER_NUM,
     )
     .finalize(bootdev_component_static!());
+    // Split-phase reads report completion (READ_DONE) through the capsule.
+    ImageFlash::set_client(bootdev_primary_flash, bootdev);
 
     // Periperhals init with boot device
     _ = ast2705_peripherals.dramc.init(bootdev);
@@ -844,13 +912,6 @@ pub unsafe fn main() {
 
     peripherals.init();
 
-    // Create a mux for the physical flash controller
-    let mux_primary_flash =
-        components::flash::FlashMuxComponent::new(&ast2705_peripherals.primary_flash_ctrl)
-            .finalize(components::flash_mux_component_static!(
-                caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashCtrl
-            ));
-
     #[cfg(any(feature = "flash-boot", feature = "firmware-update"))]
     let mut flash_partitions: [Option<&'static FlashPartition<'static>>;
         caliptra_mcu_config_ast2705::flash::FLASH_PARTITIONS_COUNT] =
@@ -865,14 +926,6 @@ pub unsafe fn main() {
         caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashCtrl,
         caliptra_mcu_flash_ctrl_ast2705::ERASE_SECTOR_SIZE
     );
-
-    // Create a mux for the recovery flash controller
-    #[cfg(any(feature = "flash-boot", feature = "firmware-update"))]
-    let mux_secondary_flash =
-        components::flash::FlashMuxComponent::new(&ast2705_peripherals.secondary_flash_ctrl)
-            .finalize(components::flash_mux_component_static!(
-                caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashCtrl
-            ));
 
     #[cfg(any(feature = "flash-boot", feature = "firmware-update"))]
     instantiate_flash_partitions!(
@@ -918,8 +971,17 @@ pub unsafe fn main() {
         true
     );
 
+    // No usable AxiDMA on this platform: back the DMA syscall with the
+    // CPU-copy engine (same HAL; swap back to &ast1040_peri.dma when a
+    // hardware DMA engine is available).
+    let nodma = static_init!(
+        caliptra_mcu_dma_common::nodma::NoDMA,
+        caliptra_mcu_dma_common::nodma::NoDMA::new()
+    );
+    kernel::deferred_call::DeferredCallClient::register(nodma);
+
     let dma = caliptra_mcu_components::dma::DmaComponent::new(
-        &ast2705_peripherals.dma,
+        nodma,
         board_kernel,
         caliptra_mcu_capsules_emulator::dma::DMA_CTRL_DRIVER_NUM,
     )

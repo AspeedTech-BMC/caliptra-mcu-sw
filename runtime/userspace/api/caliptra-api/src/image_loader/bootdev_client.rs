@@ -107,7 +107,6 @@ pub async fn bootdev_load_image(
             dest_addr: current_address,
         };
         dma_syscall.xfer(&transaction).await?;
-
         remaining_size -= transfer_size;
         current_offset += transfer_size;
         current_address += transfer_size as u64;
