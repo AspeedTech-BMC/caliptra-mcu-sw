@@ -1622,6 +1622,7 @@ dependencies = [
  "caliptra-mcu-romtime",
  "capsules-core",
  "kernel",
+ "registers-peripherals",
 ]
 
 [[package]]

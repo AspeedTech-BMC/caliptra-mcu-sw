@@ -5,6 +5,7 @@ pub mod aspeed_dramc;
 pub mod aspeed_ipc;
 pub mod aspeed_otp;
 pub mod aspeed_soc;
+pub mod aspeed_spi;
 pub mod aspeed_wdt;
 pub mod uart16550;
 

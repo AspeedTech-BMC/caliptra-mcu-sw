@@ -11,7 +11,8 @@ macro_rules! bootdev_component_static {
     () => {{
         use caliptra_mcu_capsules_runtime::bootdev::BootDevCapsule;
         let capsule = kernel::static_buf!(BootDevCapsule<'static>);
-        (capsule,)
+        let buffer = kernel::static_buf!([u8; caliptra_mcu_capsules_runtime::bootdev::BUF_LEN]);
+        (capsule, buffer)
     }};
 }
 
@@ -36,14 +37,21 @@ impl<const N: usize> BootDevComponent<N> {
 }
 
 impl<const N: usize> Component for BootDevComponent<N> {
-    type StaticInput = (&'static mut MaybeUninit<BootDevCapsule<'static>>,);
+    type StaticInput = (
+        &'static mut MaybeUninit<BootDevCapsule<'static>>,
+        &'static mut MaybeUninit<[u8; caliptra_mcu_capsules_runtime::bootdev::BUF_LEN]>,
+    );
     type Output = &'static BootDevCapsule<'static>;
 
     fn finalize(self, static_input: Self::StaticInput) -> Self::Output {
         let grant_cap = create_capability!(capabilities::MemoryAllocationCapability);
+        let buffer = static_input
+            .1
+            .write([0; caliptra_mcu_capsules_runtime::bootdev::BUF_LEN]);
         let capsule = static_input.0.write(BootDevCapsule::new(
             self.flash_devs.as_slice(),
             self.board_kernel.create_grant(self.driver_num, &grant_cap),
+            buffer,
         ));
         capsule
     }

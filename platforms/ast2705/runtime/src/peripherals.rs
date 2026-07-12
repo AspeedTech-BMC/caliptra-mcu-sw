@@ -8,6 +8,7 @@ use capsules_core::virtualizers::virtual_alarm::MuxAlarm;
 use kernel::utilities::StaticRef;
 use registers_peripherals::aspeed_dramc::SdramcRegisters;
 use registers_peripherals::aspeed_soc::SoCRegisters;
+use registers_peripherals::aspeed_spi::AspeedSpiRegisters;
 use registers_peripherals::ast2705::aspeed_scu0::SCU0Registers;
 use registers_peripherals::uart16550::Uart16550Registers;
 
@@ -20,6 +21,10 @@ pub const ASPEED_SOC_BASE: StaticRef<SoCRegisters> =
     unsafe { StaticRef::new(peri::ASPEED_SOC_ADDR as *const SoCRegisters) };
 pub const ASPEED_SCU0_BASE: StaticRef<SCU0Registers> =
     unsafe { StaticRef::new(peri::ASPEED_SCU0_ADDR as *const SCU0Registers) };
+const PRIMARY_FLASH_CTRL_BASE: StaticRef<AspeedSpiRegisters> =
+    unsafe { StaticRef::new(peri::ASPEED_FMC_CTRL_ADDR as *const AspeedSpiRegisters) };
+const SECONDARY_FLASH_CTRL_BASE: StaticRef<AspeedSpiRegisters> =
+    unsafe { StaticRef::new(peri::ASPEED_FMC_CTRL_ADDR as *const AspeedSpiRegisters) };
 
 const BOOTMCU_DRAM_BASE: u64 = 0x8000_0000;
 
@@ -53,10 +58,10 @@ impl<'a> Ast2705Peripherals<'a> {
                 BOOTMCU_DRAM_BASE,
             ),
             primary_flash_ctrl: caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashCtrl::new(
-                caliptra_mcu_flash_ctrl_ast2705::PRIMARY_FLASH_CTRL_BASE,
+                PRIMARY_FLASH_CTRL_BASE,
             ),
             secondary_flash_ctrl: caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashCtrl::new(
-                caliptra_mcu_flash_ctrl_ast2705::SECONDARY_FLASH_CTRL_BASE,
+                SECONDARY_FLASH_CTRL_BASE,
             ),
             dma: caliptra_mcu_dma_driver::axicdma::AxiCDMA::new(
                 caliptra_mcu_dma_driver::axicdma::DMA_CTRL_BASE,

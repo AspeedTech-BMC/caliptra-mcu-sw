@@ -4,10 +4,6 @@ use crate::peripherals::Ast2705Peripherals;
 use kernel::platform::chip::InterruptService;
 
 pub const UART_IRQ: u8 = 0x95;
-pub const MAIN_FLASH_CTRL_ERROR_IRQ: u8 = 0x13;
-pub const MAIN_FLASH_CTRL_EVENT_IRQ: u8 = 0x14;
-pub const RECOVERY_FLASH_CTRL_EVENT_IRQ: u8 = 0x15;
-pub const RECOVERY_FLASH_CTRL_ERROR_IRQ: u8 = 0x16;
 pub const DMA_EVENT_IRQ: u8 = 0x17;
 pub const DMA_ERROR_IRQ: u8 = 0x18;
 pub const IPC0_IRQ: u8 = 0x21;
@@ -22,16 +18,6 @@ impl<'a> InterruptService for Ast2705Peripherals<'a> {
             self.uart.handle_interrupt();
             return true;
         } else if interrupt == IPC0_IRQ as u32 || interrupt == IPC1_IRQ as u32 {
-            return true;
-        } else if interrupt == MAIN_FLASH_CTRL_ERROR_IRQ as u32
-            || interrupt == MAIN_FLASH_CTRL_EVENT_IRQ as u32
-        {
-            self.primary_flash_ctrl.handle_interrupt();
-            return true;
-        } else if interrupt == RECOVERY_FLASH_CTRL_ERROR_IRQ as u32
-            || interrupt == RECOVERY_FLASH_CTRL_EVENT_IRQ as u32
-        {
-            self.secondary_flash_ctrl.handle_interrupt();
             return true;
         } else if interrupt == DMA_ERROR_IRQ as u32 || interrupt == DMA_EVENT_IRQ as u32 {
             self.dma.handle_interrupt();
