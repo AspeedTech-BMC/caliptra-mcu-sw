@@ -126,6 +126,7 @@ members = [
     "tools/pk-hash-checker",
     "xtask",
     # Aspeed specific members
+    "runtime/kernel/drivers/dma",
     "runtime/kernel/drivers/ipc",
     "runtime/kernel/drivers/soc",
     "platforms/ast2705/config",
@@ -465,6 +466,7 @@ tock-registers = { git = "https://github.com/tock/tock.git", rev = "release-2.2"
 # tock-registers = { path = "../tock/libraries/tock-register-interface" }
 
 # local aspeed dependencies
+caliptra-mcu-dma-common = { path = "runtime/kernel/drivers/dma" }
 caliptra-mcu-aspeed-ipc = { path = "runtime/kernel/drivers/ipc" }
 caliptra-mcu-aspeed-soc = { path = "runtime/kernel/drivers/soc" }
 caliptra-mcu-capsules-ast2705 = { path = "platforms/ast2705/runtime/kernel/capsules" }

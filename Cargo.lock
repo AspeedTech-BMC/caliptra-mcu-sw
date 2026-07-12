@@ -1321,6 +1321,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "caliptra-mcu-dma-common"
+version = "0.1.0"
+dependencies = [
+ "caliptra-mcu-capsules-runtime",
+ "kernel",
+]
+
+[[package]]
 name = "caliptra-mcu-dma-driver"
 version = "0.1.0"
 dependencies = [
