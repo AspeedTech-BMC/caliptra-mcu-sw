@@ -3,6 +3,7 @@
 #![no_std]
 
 use caliptra_mcu_capsules_runtime::bootdev::hil::{KernelImageClient, KernelImageLoader};
+use kernel::utilities::cells::OptionalCell;
 use kernel::utilities::registers::interfaces::Writeable;
 use kernel::utilities::StaticRef;
 use kernel::ErrorCode;
@@ -13,16 +14,21 @@ const CA35_UBOOT: u32 = 0x100A;
 
 pub struct AspeedScuCtrl {
     reg: StaticRef<SCU0Registers>,
+    loader: OptionalCell<&'static dyn KernelImageLoader>,
 }
 
 impl AspeedScuCtrl {
     pub const fn new(base: StaticRef<SCU0Registers>) -> Self {
-        Self { reg: base }
+        Self {
+            reg: base,
+            loader: OptionalCell::empty(),
+        }
     }
 
     /// Register this driver as a passive watcher for the CA35_UBOOT image.
     /// When that image is loaded, `image_ready` fires and releases the CA35 CPUs.
-    pub fn init(&'static self, loader: &dyn KernelImageLoader) -> Result<(), ErrorCode> {
+    pub fn init(&'static self, loader: &'static dyn KernelImageLoader) -> Result<(), ErrorCode> {
+        self.loader.set(loader);
         loader.watch_image(CA35_UBOOT, self)
     }
 
@@ -53,8 +59,11 @@ impl KernelImageClient for AspeedScuCtrl {
     fn image_ready(&self, image_id: u32, _addr: u64, _size: u32) {
         if image_id == CA35_UBOOT {
             self.release_ca35(0x43000000, 0x4_0000_0000);
+            // The release is synchronous: report init completion so the
+            // waiting app's INIT_DONE fires.
+            self.loader.map(|loader| {
+                loader.notify_init_done(image_id, true);
+            });
         }
     }
-
-    fn image_error(&self, _err: ErrorCode) {}
 }

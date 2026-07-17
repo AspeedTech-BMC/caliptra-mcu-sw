@@ -21,7 +21,7 @@
 //! `FlashImageLoader`). `load_image` is the IPC backend's job and reports
 //! NOSUPPORT here.
 
-use super::hil::{BootDevType, ImageFlash, ImageFlashClient, LoadStatus};
+use super::hil::{BootDevType, ImageFlash, ImageFlashClient};
 use caliptra_mcu_flash_driver::hil::{FlashStorage, FlashStorageClient};
 use core::cell::Cell;
 use kernel::utilities::cells::OptionalCell;
@@ -62,7 +62,7 @@ impl ImageFlash for BootDevFlash<'_> {
         self.client.set(client);
     }
 
-    fn load_image(&self, _image_id: u32, _dst_addr: u32) -> Result<LoadStatus, ErrorCode> {
+    fn load_image(&self, _image_id: u32, _dst_addr: u32) -> Result<u32, ErrorCode> {
         // The capsule falls through to the IPC backend for image loads.
         Err(ErrorCode::NOSUPPORT)
     }

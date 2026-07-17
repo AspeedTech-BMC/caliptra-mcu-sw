@@ -4,9 +4,7 @@ pub mod flash;
 pub mod hil;
 pub mod ipc;
 
-use self::hil::{
-    BootDevType, ImageFlash, ImageFlashClient, KernelImageClient, KernelImageLoader, LoadStatus,
-};
+use self::hil::{BootDevType, ImageFlash, ImageFlashClient, KernelImageClient, KernelImageLoader};
 use core::cell::Cell;
 use core::cmp;
 use core::marker::PhantomData;
@@ -20,15 +18,19 @@ pub const DRIVER_NUM: usize = 0x9000_1000;
 
 /// Size of the internal buffer used to shuttle READ data into the app's
 /// allowed buffer; also the read chunk size reported to userspace.
-pub const BUF_LEN: usize = 512;
+pub const BUF_LEN: usize = 4 * 1024;
 
 mod upcall {
-    /// Kernel → app: driver needs image. args: (image_id, img_size, 0).
+    /// Kernel → app: driver needs image. args: (image_id, 0, 0).
     /// image_id == 0 is a sentinel meaning no more pending requests.
     pub const IMAGE_NEEDED: usize = 0;
-    /// Kernel → app: hardware init complete. args: (image_id, result, all_done).
+    /// Kernel → app: hardware init complete. args: (image_id, result, 0);
+    /// result 0 = success.
     pub const INIT_DONE: usize = 1;
-    /// Kernel → app: READ transfer done. args: (status, len, 0).
+    /// Kernel → app: transfer done. Args depend on the flow:
+    /// IMAGE_LOADED → (image_id, img_size, 0) on success,
+    ///                (image_id, 0, error) on failure;
+    /// READ         → (length, 0, 0).
     pub const READ_DONE: usize = 2;
     pub const COUNT: u8 = 3;
 }
@@ -51,6 +53,20 @@ mod cmd {
     pub const BOOTDEV_TYPE: usize = 8;
 }
 
+/// Ids for read-only allow buffers
+mod ro_allow {
+    /// Image info shared alongside IMAGE_INITIAL, little-endian packed:
+    /// { load_addr: u64, image_id: u32, img_size: u32 }. Lets the boot
+    /// agent hand the kernel the real load address and size when the
+    /// transfer ran in userspace (flash boot) and the kernel never saw it.
+    pub const IMAGE_INFO: usize = 0;
+    /// The number of allow buffers the kernel stores for this grant
+    pub const COUNT: u8 = 1;
+}
+
+/// Byte length of the IMAGE_INFO allow buffer payload.
+const IMAGE_INFO_LEN: usize = 16;
+
 /// Ids for read-write allow buffers
 mod rw_allow {
     /// Buffer for READ data.
@@ -70,8 +86,6 @@ const MAX_FLASH_DEVS: usize = 8;
 struct PendingEntry {
     image_id: u32,
     client: &'static dyn KernelImageClient,
-    img_size: u32,
-    load_addr: u64,
 }
 
 pub struct BootDevCapsule<'a> {
@@ -81,7 +95,7 @@ pub struct BootDevCapsule<'a> {
     /// None = auto (poll all, first available wins); Some(i) = use flash_devs[i] directly.
     /// Set by board init via set_flash_dev_policy(), not by userspace.
     flash_dev_policy: Cell<Option<usize>>,
-    // FIFO queue of pending requests; load_addr filled in by IMAGE_LOADED
+    // FIFO queue of pending image requests from kernel drivers.
     pending_queue: Cell<[Option<PendingEntry>; MAX_PENDING]>,
     pending_head: Cell<usize>,
     pending_count: Cell<usize>,
@@ -99,7 +113,7 @@ pub struct BootDevCapsule<'a> {
     apps: Grant<
         App,
         UpcallCount<{ upcall::COUNT }>,
-        AllowRoCount<0>,
+        AllowRoCount<{ ro_allow::COUNT }>,
         AllowRwCount<{ rw_allow::COUNT }>,
     >,
     active_app: OptionalCell<ProcessId>,
@@ -112,7 +126,7 @@ impl<'a> BootDevCapsule<'a> {
         grant: Grant<
             App,
             UpcallCount<{ upcall::COUNT }>,
-            AllowRoCount<0>,
+            AllowRoCount<{ ro_allow::COUNT }>,
             AllowRwCount<{ rw_allow::COUNT }>,
         >,
         buffer: &'static mut [u8],
@@ -155,11 +169,8 @@ impl<'a> BootDevCapsule<'a> {
         self.active_image_id.set(Some(entry.image_id));
         if let Some(pid) = self.active_app.get() {
             let _ = self.apps.enter(pid, |_, kd| {
-                kd.schedule_upcall(
-                    upcall::IMAGE_NEEDED,
-                    (entry.image_id as usize, entry.img_size as usize, 0),
-                )
-                .ok();
+                kd.schedule_upcall(upcall::IMAGE_NEEDED, (entry.image_id as usize, 0, 0))
+                    .ok();
             });
         }
     }
@@ -194,18 +205,8 @@ impl<'a> BootDevCapsule<'a> {
         }
     }
 
-    /// Persist the confirmed image size into the active pending-queue entry
-    /// and unblock the userspace `image_loaded()` call with a READ_DONE
-    /// upcall. Shared by the synchronous (`LoadStatus::Complete`) and
-    /// asynchronous (`ImageFlashClient::load_complete`) completion paths.
+    /// Unblock the userspace `image_loaded()` call with a READ_DONE upcall.
     fn finish_load(&self, image_id: u32, img_size: u32) {
-        let mut queue = self.pending_queue.get();
-        let head = self.pending_head.get();
-        if let Some(ref mut entry) = queue[head % MAX_PENDING] {
-            entry.img_size = img_size;
-        }
-        self.pending_queue.set(queue);
-
         if let Some(pid) = self.active_app.get() {
             let _ = self.apps.enter(pid, |_, kd| {
                 kd.schedule_upcall(upcall::READ_DONE, (image_id as usize, img_size as usize, 0))
@@ -216,22 +217,6 @@ impl<'a> BootDevCapsule<'a> {
 }
 
 impl ImageFlashClient for BootDevCapsule<'_> {
-    fn load_complete(&self, image_id: u32, result: Result<u32, ErrorCode>) {
-        match result {
-            Ok(img_size) => self.finish_load(image_id, img_size),
-            Err(err) => {
-                // Signal failure to the waiting app: READ_DONE with size 0
-                // and the error code in the third argument.
-                if let Some(pid) = self.active_app.get() {
-                    let _ = self.apps.enter(pid, |_, kd| {
-                        kd.schedule_upcall(upcall::READ_DONE, (image_id as usize, 0, err as usize))
-                            .ok();
-                    });
-                }
-            }
-        }
-    }
-
     // A backend READ finished: copy the data into the app's allowed buffer,
     // bank the internal buffer, and signal the app (mirrors
     // FlashPartition::read_done).
@@ -265,7 +250,6 @@ impl KernelImageLoader for BootDevCapsule<'_> {
     fn request_image(
         &self,
         image_id: u32,
-        img_size: usize,
         client: &'static dyn KernelImageClient,
     ) -> Result<(), ErrorCode> {
         let count = self.pending_count.get();
@@ -275,12 +259,7 @@ impl KernelImageLoader for BootDevCapsule<'_> {
         let mut queue = self.pending_queue.get();
         let tail = (self.pending_head.get() + count) % MAX_PENDING;
 
-        queue[tail] = Some(PendingEntry {
-            image_id,
-            client,
-            img_size: img_size as u32,
-            load_addr: 0,
-        });
+        queue[tail] = Some(PendingEntry { image_id, client });
         self.pending_queue.set(queue);
         self.pending_count.set(count + 1);
 
@@ -302,23 +281,22 @@ impl KernelImageLoader for BootDevCapsule<'_> {
             return Err(ErrorCode::NOMEM);
         }
         let mut watchers = self.watchers.get();
-        watchers[count] = Some(PendingEntry {
-            image_id,
-            client,
-            img_size: 0,
-            load_addr: 0,
-        });
+        watchers[count] = Some(PendingEntry { image_id, client });
         self.watchers.set(watchers);
         self.watcher_count.set(count + 1);
         Ok(())
     }
 
     fn notify_init_done(&self, image_id: u32, success: bool) {
-        // Consume from the head of the queue
-        let head = self.pending_head.get();
-        self.pending_head.set((head + 1) % MAX_PENDING);
+        // Consume from the head of the queue. Guard against an empty queue
+        // (watcher-only flows have no pending entry) — an unconditional
+        // decrement would underflow pending_count and corrupt the queue.
         let count = self.pending_count.get();
-        self.pending_count.set(count - 1);
+        if count > 0 {
+            let head = self.pending_head.get();
+            self.pending_head.set((head + 1) % MAX_PENDING);
+            self.pending_count.set(count - 1);
+        }
         self.active_image_id.set(None);
 
         let result: usize = if success { 0 } else { 1 };
@@ -379,29 +357,18 @@ impl SyscallDriver for BootDevCapsule<'_> {
                 let image_id = r2 as u32;
                 let addr = r3;
 
-                // Persist the load address into the active pending-queue entry
-                // up front so it is available whether the load completes
-                // synchronously or through load_complete().
-                let mut queue = self.pending_queue.get();
-                let head = self.pending_head.get();
-                if let Some(ref mut entry) = queue[head % MAX_PENDING] {
-                    entry.load_addr = addr as u64;
-                }
-                self.pending_queue.set(queue);
-
                 let devs = self.get_flash_devs();
                 for dev in devs.iter().flatten() {
                     let map_addr = dev.map_to_axi(addr as u64);
                     match dev.load_image(image_id, map_addr as u32) {
-                        // Load finished within the call: unblock the
-                        // userspace image_loaded() future right away.
-                        Ok(LoadStatus::Complete(img_size)) => {
+                        // Load finished: unblock the userspace
+                        // image_loaded() future right away.
+                        Ok(img_size) => {
                             self.finish_load(image_id, img_size);
                             return CommandReturn::success();
                         }
-                        // Split-phase load started: READ_DONE fires from
-                        // load_complete() when the backend is done.
-                        Ok(LoadStatus::Pending) => return CommandReturn::success(),
+                        // Backend does not serve this image (e.g. flash
+                        // backends): fall through to the next one.
                         Err(_) => continue,
                     }
                 }
@@ -478,27 +445,70 @@ impl SyscallDriver for BootDevCapsule<'_> {
             }
 
             cmd::IMAGE_INITIAL => {
-                // r2 = image_id,
-                // Kicks off async boot-device read → fires READ_DONE upcall when done
-                // TODO: integrate with actual boot device driver
-                let image_id = r2 as u32;
+                // The IMAGE_INFO allow buffer (little-endian
+                // { load_addr: u64, image_id: u32, img_size: u32 }) fully
+                // identifies the image being initialized and carries its
+                // load info; the command registers are unused.
+
+                // (load_addr, image_id, image_size) from the allow buffer.
+                let info: Option<(u64, u32, u32)> = self
+                    .apps
+                    .enter(pid, |_, kernel_data| {
+                        kernel_data
+                            .get_readonly_processbuffer(ro_allow::IMAGE_INFO)
+                            .map_or(None, |buf| {
+                                buf.enter(|data| {
+                                    if data.len() < IMAGE_INFO_LEN {
+                                        return None;
+                                    }
+                                    let mut raw = [0u8; IMAGE_INFO_LEN];
+                                    data[..IMAGE_INFO_LEN].copy_to_slice(&mut raw);
+                                    let load_addr =
+                                        u64::from_le_bytes(raw[0..8].try_into().unwrap());
+                                    let image_id =
+                                        u32::from_le_bytes(raw[8..12].try_into().unwrap());
+                                    let image_size =
+                                        u32::from_le_bytes(raw[12..16].try_into().unwrap());
+                                    Some((load_addr, image_id, image_size))
+                                })
+                                .unwrap_or(None)
+                            })
+                    })
+                    .unwrap_or(None);
+
+                // The image info buffer is mandatory: fail if it was not
+                // shared or is malformed.
+                let (load_addr, image_id, image_size) = match info {
+                    Some(info) => info,
+                    None => return CommandReturn::failure(ErrorCode::INVAL),
+                };
 
                 let queue = self.pending_queue.get();
                 let head = self.pending_head.get();
-                if let Some(entry) = queue[head % MAX_PENDING] {
-                    if entry.image_id == image_id {
-                        entry
-                            .client
-                            .image_ready(entry.image_id, entry.load_addr, entry.img_size);
-                    }
-                }
-
-                // Fire passive watchers registered for this image type.
+                let entry = queue[head % MAX_PENDING].filter(|entry| entry.image_id == image_id);
                 let watchers = self.watchers.get();
-                for w in watchers.iter().flatten() {
-                    if w.image_id == image_id {
-                        w.client.image_ready(w.image_id, w.load_addr, w.img_size);
+
+                if let Some(entry) = entry {
+                    // A kernel driver requested this image; it reports init
+                    // completion via notify_init_done.
+                    entry
+                        .client
+                        .image_ready(entry.image_id, load_addr, image_size);
+                } else if watchers.iter().flatten().any(|w| w.image_id == image_id) {
+                    // Fire the passive watchers registered for this image;
+                    // they report init completion via notify_init_done.
+                    for w in watchers.iter().flatten() {
+                        if w.image_id == image_id {
+                            w.client.image_ready(w.image_id, load_addr, image_size);
+                        }
                     }
+                } else {
+                    // Nobody claimed this image: no driver will call
+                    // notify_init_done, so complete INIT_DONE directly.
+                    let _ = self.apps.enter(pid, |_, kd| {
+                        kd.schedule_upcall(upcall::INIT_DONE, (image_id as usize, 0, 0))
+                            .ok();
+                    });
                 }
 
                 CommandReturn::success()

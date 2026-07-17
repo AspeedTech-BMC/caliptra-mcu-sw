@@ -3629,7 +3629,7 @@ impl DramCtrl {
     fn load_phy_image(&self, img_id: u32) -> Result<(), ErrorCode> {
         if let Some(b) = self.bootdev.get() {
             if let Some(client) = self.client_ref.get() {
-                b.request_image(img_id, 0, client)?;
+                b.request_image(img_id, client)?;
             }
         }
         Ok(())
@@ -3768,10 +3768,6 @@ impl KernelImageClient for DramCtrl {
                 caliptra_mcu_romtime::println!("Receive unsupport image ready information.");
             }
         }
-    }
-
-    fn image_error(&self, _err: ErrorCode) {
-        // TODO: signal fatal error
     }
 }
 
