@@ -127,6 +127,18 @@ impl Pic {
             enable.write(Meie::Inten::SET);
         }
     }
+
+    /// Enable a list of interrupt IDs, leaving every other line masked
+    /// (mirrors `sifive::plic::enable_specific_interrupts`). IDs out of
+    /// range are ignored.
+    pub fn enable_specific_interrupts(&self, interrupts: &[u32]) {
+        for &irq in interrupts {
+            if let Some(enable) = self.registers.meie.get(irq as usize) {
+                enable.write(Meie::Inten::SET);
+            }
+        }
+    }
+
     /// Disable all interrupts.
     pub fn disable_all(&self) {
         for enable in self.registers.meie.iter().skip(1) {

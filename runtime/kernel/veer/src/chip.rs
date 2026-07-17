@@ -138,6 +138,11 @@ impl<'a, I: InterruptService + 'a> VeeR<'a, I> {
         self.pic.enable_all();
     }
 
+    /// Enable only the given PIC interrupt lines, leaving the rest masked.
+    pub fn enable_specific_pic_interrupts(&self, interrupts: &[u32]) {
+        self.pic.enable_specific_interrupts(interrupts);
+    }
+
     pub fn enable_timer_interrupts(&self) {
         self.timers.enable_timer0();
     }

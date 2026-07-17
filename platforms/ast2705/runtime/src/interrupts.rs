@@ -12,6 +12,16 @@ pub const IPC1_IRQ: u8 = 0x22;
 #[cfg(any(feature = "doe", feature = "test-doe-transport-loopback"))]
 pub const DOE_MBOX_EVENT_IRQ: u8 = 0x19;
 
+/// Interrupt lines used by these peripherals; every other PIC line stays
+/// masked. Must stay in sync with `service_interrupt()` below.
+pub const USED_IRQS: &[u32] = &[
+    IPC0_IRQ as u32,
+    IPC1_IRQ as u32,
+    UART_IRQ as u32,
+    DMA_EVENT_IRQ as u32,
+    DMA_ERROR_IRQ as u32,
+];
+
 impl<'a> InterruptService for Ast2705Peripherals<'a> {
     unsafe fn service_interrupt(&self, interrupt: u32) -> bool {
         if interrupt == UART_IRQ as u32 {
