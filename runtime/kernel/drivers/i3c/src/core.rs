@@ -232,6 +232,14 @@ impl<'a, A: Alarm<'a>> I3CCore<'a, A> {
         if self.tx_buffer.is_none() {
             return;
         }
+        if self.pending_ibi.is_some() {
+            // The IbiDone interrupt has not retired this packet's IBI yet.
+            // Reporting completion now lets the client submit the next packet
+            // of a multi-packet message, and transmit_read() would refuse it
+            // because pending_ibi is still set - silently truncating anything
+            // larger than one packet. ibi_done() re-arms this deferred call.
+            return;
+        }
         self.tx_client.map(|client| {
             client.send_done(self.tx_buffer.take().unwrap(), Ok(()));
         });
@@ -242,14 +250,11 @@ impl<'a, A: Alarm<'a>> I3CCore<'a, A> {
             // we can only have one IBI pending at a time
             return;
         }
-        // write the descriptor first
-        self.registers
-            .tti_tti_ibi_port
-            .set((IbiDescriptor::Mdb.val(mdb as u32) + IbiDescriptor::DataLength.val(2)).into());
-
-        // Note: we only write 2 bytes so that the IBI is <=4 bytes long so that
-        // the controller can read it in one dword.
-        self.registers.tti_tti_ibi_port.set(len.swap_bytes() as u32);
+        // Linux i3c-mctp consumes the MDB and performs a private read; the
+        // packet length must not be appended as IBI payload.
+        let descriptor: u32 =
+            (IbiDescriptor::Mdb.val(mdb as u32) + IbiDescriptor::DataLength.val(0)).into();
+        self.registers.tti_tti_ibi_port.set(descriptor);
         self.pending_ibi.set((mdb, len));
     }
 
@@ -257,6 +262,9 @@ impl<'a, A: Alarm<'a>> I3CCore<'a, A> {
         if let Some((mdb, len)) = self.pending_ibi.take() {
             // check if IBI was successful
             if ibi_status == 0 {
+                // The IBI is retired, so a transmit that deferred_done() held
+                // back can now be completed.
+                self.deferred_call.set();
                 // schedule a callback to handle any pending private reads
                 self.set_alarm(Self::RETRY_WAIT_TICKS);
             } else {

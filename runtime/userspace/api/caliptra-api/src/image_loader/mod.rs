@@ -30,6 +30,7 @@ use caliptra_mcu_pldm_common::message::firmware_update::get_fw_params::FirmwareP
 use caliptra_mcu_pldm_common::message::firmware_update::verify_complete::VerifyResult;
 use caliptra_mcu_pldm_common::protocol::firmware_update::Descriptor;
 use caliptra_mcu_pldm_lib::timer::AsyncAlarm;
+use core::cell::Cell;
 use core::fmt::Write;
 use dma_transfer::DmaTransfer;
 use embassy_executor::Spawner;
@@ -68,11 +69,14 @@ pub struct FlashImageLoader<'a, T: DmaTransfer> {
     dma_transfer: &'a T,
 }
 
+pub use pldm_client::wait_activate;
+
 pub struct PldmImageLoader<'a, D: DMAMapping + 'static> {
     mailbox: Mailbox,
     spawner: Spawner,
     params: &'a PldmFirmwareDeviceParams<'a>,
     dma_mapping: &'static D,
+    load_info: Cell<(AXIAddr, u32)>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -257,10 +261,17 @@ impl<'a, D: DMAMapping + 'static> PldmImageLoader<'a, D> {
             spawner,
             params,
             dma_mapping,
+            load_info: Cell::new((0, 0)),
         }
     }
     pub fn finalize(&self, verify_result: VerifyResult) -> Result<(), ErrorCode> {
         pldm_client::finalize(verify_result)
+    }
+
+    /// Load address and size of the most recently downloaded image. Valid
+    /// after `load()` returns `Ok(_)`; authorization is the caller's responsibility.
+    pub fn load_info(&self) -> (AXIAddr, u32) {
+        self.load_info.get()
     }
 
     /// Wait for the PLDM service to fully stop (protocol complete, tasks exited).
@@ -289,6 +300,8 @@ impl<D: DMAMapping + 'static> ImageLoader for PldmImageLoader<'_, D> {
             .await?;
             let (offset, size) = pldm_client::pldm_download_toc(image_info.component_id).await?;
             pldm_client::pldm_download_image(load_address, offset, size).await?;
+            // Preserve the destination for platform-specific image activation.
+            self.load_info.set((load_address, size));
             Ok(LoadedImage {
                 image_size: size,
                 measurement: image_info.digest,

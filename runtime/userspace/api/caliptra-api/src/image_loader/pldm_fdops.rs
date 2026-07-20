@@ -256,7 +256,9 @@ impl<D: DMAMapping> FdOps for StreamingFdOps<'_, D> {
 
     fn activate(&self, _self_contained_activation: u8, estimated_time: &mut u16) -> McuResult<u8> {
         *estimated_time = 0;
-        // Activate is not applicable for streaming boot, so we return success.
+        // The PLDM update flow is complete; unblock the boot flow waiting in
+        // pldm_client::wait_activate().
+        crate::image_loader::pldm_client::PLDM_ACTIVATE_SIGNAL.signal(());
         Ok(0) // PLDM completion code for success
     }
 }

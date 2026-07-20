@@ -5,9 +5,12 @@ use super::pldm_context::State;
 use super::pldm_fdops::StreamingFdOps;
 use caliptra_mcu_flash_image::{FlashHeader, ImageHeader};
 
+use core::fmt::Write;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 
 use caliptra_mcu_libsyscall_caliptra::dma::{AXIAddr, DMAMapping};
+use caliptra_mcu_libsyscall_caliptra::DefaultSyscalls;
+use caliptra_mcu_libtock_console::Console;
 use embassy_executor::Spawner;
 use embassy_sync::signal::Signal;
 
@@ -26,6 +29,9 @@ use super::pldm_context::{DOWNLOAD_CTX, PLDM_STATE};
 const MAX_IMAGE_COUNT: u32 = 127;
 
 pub static PLDM_TASK_YIELD: Signal<CriticalSectionRawMutex, ()> = Signal::new();
+/// Fired when the UA sends ActivateFirmware, i.e. the PLDM update flow
+/// (TransferComplete/VerifyComplete/ApplyComplete) has fully completed.
+pub static PLDM_ACTIVATE_SIGNAL: Signal<CriticalSectionRawMutex, ()> = Signal::new();
 pub static IMAGE_LOADING_TASK_YIELD: Signal<CriticalSectionRawMutex, ()> = Signal::new();
 
 #[embassy_executor::task]
@@ -34,6 +40,11 @@ async fn pldm_service_task(pldm_ops: &'static dyn FdOps, spawner: Spawner) {
 }
 
 pub async fn pldm_service(pldm_ops: &'static dyn FdOps, spawner: Spawner) {
+    writeln!(
+        Console::<DefaultSyscalls>::writer(),
+        "[pldm-client] starting PLDM service\r"
+    )
+    .unwrap();
     let mut pldm_service_init: PldmService = PldmService::init(pldm_ops, spawner);
     pldm_service_init.start().await.unwrap();
 }
@@ -207,4 +218,8 @@ pub fn finalize(verify_result: VerifyResult) -> Result<(), ErrorCode> {
     });
     PLDM_TASK_YIELD.signal(());
     Ok(())
+}
+
+pub async fn wait_activate() {
+    PLDM_ACTIVATE_SIGNAL.wait().await;
 }

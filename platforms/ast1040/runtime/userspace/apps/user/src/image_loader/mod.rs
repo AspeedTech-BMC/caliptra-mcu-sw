@@ -75,15 +75,6 @@ use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::{lazy_lock::LazyLock, signal::Signal};
 use mcu_caliptra_api::image_loader::BootDevImageLoader;
 #[allow(unused)]
-#[cfg(not(any(
-    feature = "streaming-boot",
-    feature = "test-pldm-discovery",
-    feature = "test-pldm-fw-update",
-    feature = "test-pldm-fw-update-e2e",
-    feature = "test-pldm-streaming-boot"
-)))]
-use mcu_caliptra_api::image_loader::{dma_transfer::DmaTransfer, FlashImageLoader, ImageLoader};
-#[allow(unused)]
 #[cfg(any(
     feature = "streaming-boot",
     feature = "test-pldm-discovery",
@@ -92,9 +83,18 @@ use mcu_caliptra_api::image_loader::{dma_transfer::DmaTransfer, FlashImageLoader
     feature = "test-pldm-streaming-boot"
 ))]
 use mcu_caliptra_api::image_loader::{
-    dma_transfer::DmaTransfer, FlashImageLoader, ImageLoader, PldmFirmwareDeviceParams,
-    PldmImageLoader,
+    dma_transfer::DmaTransfer, wait_activate, FlashImageLoader, ImageLoader,
+    PldmFirmwareDeviceParams, PldmImageLoader,
 };
+#[allow(unused)]
+#[cfg(not(any(
+    feature = "streaming-boot",
+    feature = "test-pldm-discovery",
+    feature = "test-pldm-fw-update",
+    feature = "test-pldm-fw-update-e2e",
+    feature = "test-pldm-streaming-boot"
+)))]
+use mcu_caliptra_api::image_loader::{dma_transfer::DmaTransfer, FlashImageLoader, ImageLoader};
 #[allow(unused)]
 use zerocopy::{FromBytes, IntoBytes};
 
@@ -183,6 +183,7 @@ pub async fn image_loading_task(soc_image_load_list: &'static [u32]) {
         emit_attestation_evidence_ready();
         #[cfg(all(
             not(feature = "firmware-update"),
+            not(feature = "test-pldm-streaming-boot"),
             not(feature = "test-mctp-spdm-attestation"),
             not(feature = "test-mctp-spdm-attestation-tcb"),
             not(feature = "test-mctp-spdm-attestation-mixed")
@@ -191,6 +192,7 @@ pub async fn image_loading_task(soc_image_load_list: &'static [u32]) {
     }
     // After image loading, proceed to firmware update if enabled
     #[cfg(all(
+        not(feature = "test-pldm-streaming-boot"),
         any(
             feature = "test-firmware-activate",
             feature = "test-firmware-update-streaming"
@@ -213,6 +215,7 @@ pub async fn image_loading_task(soc_image_load_list: &'static [u32]) {
     }
     #[cfg(all(
         feature = "firmware-update",
+        not(feature = "test-pldm-streaming-boot"),
         not(feature = "test-firmware-update-streaming"),
         not(feature = "test-mctp-spdm-attestation"),
         not(feature = "test-mctp-spdm-attestation-tcb"),
@@ -235,6 +238,7 @@ pub async fn image_loading_task(soc_image_load_list: &'static [u32]) {
         // MBOX SRAM lock will be released after reboot
     }
 
+    #[cfg(not(feature = "test-pldm-streaming-boot"))]
     match image_loading(
         &AST1040_DMA_MAPPING,
         soc_image_load_list,
@@ -244,6 +248,85 @@ pub async fn image_loading_task(soc_image_load_list: &'static [u32]) {
     {
         Ok(_) => {}
         Err(_) => System::exit(1),
+    }
+}
+
+/// Download the CM4 image from the PLDM firmware device, authorize it with
+/// Caliptra, then notify the SCU watcher to release the CM4 from reset.
+#[cfg(feature = "test-pldm-streaming-boot")]
+async fn load_cm4_via_pldm<D: DMAMapping + 'static>(
+    dma_mapping: &'static D,
+) -> Result<(), ErrorCode> {
+    BootDev::<DefaultSyscalls>::new().app_ready()?;
+
+    let fw_params = PldmFirmwareDeviceParams {
+        descriptors: &config::streaming_boot_consts::DESCRIPTOR.get()[..],
+        fw_params: config::streaming_boot_consts::STREAMING_BOOT_FIRMWARE_PARAMS.get(),
+    };
+    let spawner = crate::EXECUTOR.get().spawner();
+    let loader = PldmImageLoader::new(&fw_params, spawner, dma_mapping);
+
+    load_and_authorize_cm4(&loader).await.inspect_err(|_| {
+        // Report load/authorization failure to the PLDM Update Agent.
+        let _ = loader.finalize(VerifyResult::VerifyFailedFdSecurityChecks);
+    })?;
+    loader.finalize(VerifyResult::VerifySuccess)?;
+    wait_activate().await;
+    // Let the responder send ActivateFirmware's response before CM4 starts.
+    loader.wait_for_service_stopped().await;
+
+    // IMAGE_INITIAL invokes the AST1040 SCU image watcher. The watcher enables
+    // PSP RAM/cache and releases CM4 reset before completing this syscall.
+    let (load_addr, size) = loader.load_info();
+    BootDev::<DefaultSyscalls>::new()
+        .wait_init_done(image_id::SSP_ZEPHYR, load_addr, size)
+        .await?;
+    Ok(())
+}
+
+#[cfg(feature = "test-pldm-streaming-boot")]
+async fn load_and_authorize_cm4(loader: &impl ImageLoader) -> Result<(), ErrorCode> {
+    use caliptra_mcu_pldm_lib::timer::AsyncAlarm;
+    use mcu_caliptra_api::{
+        authorize_and_stash, AuthorizeAndStashFlags, AuthorizeAndStashParams, ImageHashSource,
+    };
+
+    // Two slots hold the 120-byte authorization request; one holds the bitmap.
+    const SCRATCH_SLOTS: usize = 3;
+    let mut scratch = Vec::new();
+    scratch
+        .try_reserve_exact(SCRATCH_SLOTS)
+        .map_err(|_| ErrorCode::Fail)?;
+    scratch.resize(
+        SCRATCH_SLOTS,
+        ImageLoadMeasurementScratchSlot([0; BITMAP_SLOT_SIZE]),
+    );
+    let scratch_ptr = NonNull::new(scratch.as_mut_ptr().cast::<u8>()).ok_or(ErrorCode::Fail)?;
+    // SAFETY: scratch owns aligned storage and outlives the allocator and requests.
+    let allocator = unsafe { BitmapAllocator::new(scratch_ptr, SCRATCH_SLOTS * BITMAP_SLOT_SIZE) };
+
+    let loaded = loader.load(image_id::SSP_ZEPHYR).await?;
+    // CM4 streaming boot authorizes from its load address without stashing.
+    // It does not require a CM4 entry in the Measurement API's SoC manifest.
+    let params = AuthorizeAndStashParams {
+        fw_id: image_id::SSP_ZEPHYR,
+        measurement: [0; 48],
+        context: [0; 48],
+        svn: 0,
+        flags: AuthorizeAndStashFlags::SKIP_STASH,
+        source: ImageHashSource::LoadAddress,
+        image_size: loaded.image_size,
+    };
+    loop {
+        match authorize_and_stash(&allocator, &params).await {
+            Ok(()) => return Ok(()),
+            // Caliptra's busy reply comes back synchronously, so retrying
+            // without sleeping would starve the executor.
+            Err(mcu_error::codes::MAILBOX_BUSY) => {
+                let _ = AsyncAlarm::<DefaultSyscalls>::sleep_ticks(1).await;
+            }
+            Err(_) => return Err(ErrorCode::Fail),
+        }
     }
 }
 
@@ -275,9 +358,27 @@ async fn load_images<D: DMAMapping + 'static>(
     Ok(())
 }
 
-#[allow(dead_code)]
 #[allow(unused_variables)]
 async fn image_loading<D: DMAMapping>(
+    dma_mapping: &'static D,
+    soc_image_load_list: &'static [u32],
+    mcu_fw_hitless_update_reset: bool,
+) -> Result<(), ErrorCode> {
+    #[cfg(feature = "test-pldm-streaming-boot")]
+    let result = load_cm4_via_pldm(dma_mapping).await;
+    #[cfg(not(feature = "test-pldm-streaming-boot"))]
+    let result = load_configured_images(
+        dma_mapping,
+        soc_image_load_list,
+        mcu_fw_hitless_update_reset,
+    )
+    .await;
+    result
+}
+
+#[allow(dead_code)]
+#[allow(unused_variables)]
+async fn load_configured_images<D: DMAMapping>(
     dma_mapping: &'static D,
     soc_image_load_list: &'static [u32],
     mcu_fw_hitless_update_reset: bool,

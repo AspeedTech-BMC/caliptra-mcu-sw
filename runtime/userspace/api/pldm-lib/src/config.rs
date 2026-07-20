@@ -10,7 +10,7 @@ pub const FD_MAX_XFER_SIZE: usize = 512; // Arbitrary limit and change as needed
 pub const DEFAULT_FD_T1_TIMEOUT: PldmFdTime = 120000; // FD_T1 update mode idle timeout, range is [60s, 120s].
 pub const DEFAULT_FD_T2_RETRY_TIME: PldmFdTime = 5000; // FD_T2 retry request for firmware data, range is [1s, 5s].
 pub const INSTANCE_ID_COUNT: u8 = 32;
-pub const UA_EID: u8 = 8; // Update Agent Endpoint ID for testing.
+pub const UA_EID: u8 = 9; // Update Agent Endpoint ID for testing.
 
 pub static PLDM_PROTOCOL_CAPABILITIES: LazyLock<
     [ProtocolCapability<'static>; PLDM_PROTOCOL_CAP_COUNT],
