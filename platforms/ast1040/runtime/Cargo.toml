@@ -44,6 +44,7 @@ caliptra-mcu-capsules-ast1040.workspace = true
 caliptra-mcu-config-ast1040.workspace = true
 caliptra-mcu-dma-common.workspace = true
 caliptra-mcu-flash-ctrl-ast1040.workspace = true
+caliptra-mcu-hyperram-ast1040.workspace = true
 caliptra-mcu-scu-ast1040.workspace = true
 registers-peripherals.workspace = true
 

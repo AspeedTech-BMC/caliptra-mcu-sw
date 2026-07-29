@@ -5,6 +5,7 @@ use caliptra_mcu_config_ast1040::peri;
 use caliptra_mcu_tock_veer::timers::InternalTimers;
 use capsules_core::virtualizers::virtual_alarm::MuxAlarm;
 use kernel::utilities::StaticRef;
+use registers_peripherals::aspeed_hyperram::{HyperRamArbRegisters, HyperRamCsrRegisters};
 use registers_peripherals::aspeed_spi::AspeedSpiRegisters;
 use registers_peripherals::ast1040::aspeed_scu1::SCU1Registers;
 use registers_peripherals::uart16550::Uart16550Registers;
@@ -14,6 +15,18 @@ pub const ASPEED_UART_BASE: StaticRef<Uart16550Registers> =
     unsafe { StaticRef::new(peri::ASPEED_UART_ADDR as *const Uart16550Registers) };
 pub const ASPEED_SCU_BASE: StaticRef<SCU1Registers> =
     unsafe { StaticRef::new(peri::ASPEED_SCU_ADDR as *const SCU1Registers) };
+const ASPEED_HYPERRAM_CSR_BASE: caliptra_mcu_romtime::StaticRef<HyperRamCsrRegisters> = unsafe {
+    caliptra_mcu_romtime::StaticRef::new(
+        peri::ASPEED_HYPERRAM_CSR_ADDR as *const HyperRamCsrRegisters,
+    )
+};
+const ASPEED_HYPERRAM_ARB_BASE: caliptra_mcu_romtime::StaticRef<HyperRamArbRegisters> = unsafe {
+    caliptra_mcu_romtime::StaticRef::new(
+        peri::ASPEED_HYPERRAM_ARB_ADDR as *const HyperRamArbRegisters,
+    )
+};
+const ASPEED_HYPERRAM_SCU_BASE: caliptra_mcu_romtime::StaticRef<SCU1Registers> =
+    unsafe { caliptra_mcu_romtime::StaticRef::new(peri::ASPEED_SCU_ADDR as *const SCU1Registers) };
 const PRIMARY_FLASH_CTRL_BASE: StaticRef<AspeedSpiRegisters> =
     unsafe { StaticRef::new(peri::ASPEED_FMC_CTRL_ADDR as *const AspeedSpiRegisters) };
 const SECONDARY_FLASH_CTRL_BASE: StaticRef<AspeedSpiRegisters> =
@@ -22,6 +35,7 @@ const SECONDARY_FLASH_CTRL_BASE: StaticRef<AspeedSpiRegisters> =
 pub struct Ast1040Peripherals<'a> {
     pub uart: Ast1040Uart16550<'a>,
     pub scu: caliptra_mcu_scu_ast1040::Ast1040ScuCtrl,
+    pub hyperram: caliptra_mcu_hyperram_ast1040::AspeedHyperRamCtrl,
     pub primary_flash_ctrl: caliptra_mcu_flash_ctrl_ast1040::Ast1040FlashCtrl<'a>,
     pub secondary_flash_ctrl: caliptra_mcu_flash_ctrl_ast1040::Ast1040FlashCtrl<'a>,
     pub ipc: caliptra_mcu_aspeed_ipc::AspeedIpcCtrl,
@@ -35,6 +49,11 @@ impl<'a> Ast1040Peripherals<'a> {
         Self {
             uart: Ast1040Uart16550::new(ASPEED_UART_BASE),
             scu: caliptra_mcu_scu_ast1040::Ast1040ScuCtrl::new(ASPEED_SCU_BASE),
+            hyperram: caliptra_mcu_hyperram_ast1040::AspeedHyperRamCtrl::new(
+                ASPEED_HYPERRAM_CSR_BASE,
+                ASPEED_HYPERRAM_ARB_BASE,
+                ASPEED_HYPERRAM_SCU_BASE,
+            ),
             primary_flash_ctrl: caliptra_mcu_flash_ctrl_ast1040::Ast1040FlashCtrl::new(
                 PRIMARY_FLASH_CTRL_BASE,
             ),
@@ -61,11 +80,20 @@ impl<'a> Ast1040Peripherals<'a> {
         }
     }
 
-    pub fn init(&'static self) {
+    pub fn init(
+        &'static self,
+    ) -> Result<
+        caliptra_mcu_hyperram_ast1040::HyperRamInitStatus,
+        caliptra_mcu_hyperram_ast1040::HyperRamError,
+    > {
+        let hyperram_status = self.hyperram.init()?;
+
         self.ipc.init();
         self.primary_flash_ctrl.init();
         self.secondary_flash_ctrl.init();
         #[cfg(any(feature = "doe", feature = "test-doe-transport-loopback"))]
         self.doe_transport.init();
+
+        Ok(hyperram_status)
     }
 }

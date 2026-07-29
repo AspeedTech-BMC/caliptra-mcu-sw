@@ -6,8 +6,11 @@ pub const ASPEED_SOC_ADDR: u32 = 0x1000_0000;
 /* IO die peripheral address */
 pub const ASPEED_FMC_CTRL_ADDR: u32 = 0x3400_0000;
 pub const ASPEED_SCU_ADDR: u32 = 0x34c0_2000;
+pub const ASPEED_HYPERRAM_ARB_ADDR: u32 = 0x34c1_c000;
+pub const ASPEED_HYPERRAM_CSR_ADDR: u32 = 0x34c1_d000;
 pub const ASPEED_UART_ADDR: u32 = 0x34c3_3c00;
 pub const ASPEED_IPC_TX_ADDR: u32 = 0x34c3_9100;
 pub const ASPEED_IPC_RX_ADDR: u32 = 0x34c3_9180;
 pub const ASPEED_IPC_SHM_ADDR: u32 = 0x34b9_f000;
 pub const ASPEED_IPC_SHM_SIZE: u32 = 0x0000_1000;
+pub const ASPEED_HYPERRAM_ADDR: u32 = 0xf000_0000;

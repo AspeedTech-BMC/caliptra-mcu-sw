@@ -1866,6 +1866,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "caliptra-mcu-hyperram-ast1040"
+version = "0.1.0"
+dependencies = [
+ "caliptra-mcu-config-ast1040",
+ "caliptra-mcu-romtime",
+ "registers-peripherals",
+ "tock-registers",
+]
+
+[[package]]
 name = "caliptra-mcu-i3c-driver"
 version = "0.1.0"
 dependencies = [
@@ -5364,16 +5374,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hyperram-ast1040"
-version = "0.1.0"
-dependencies = [
- "caliptra-mcu-config-ast1040",
- "caliptra-mcu-romtime",
- "registers-peripherals",
- "tock-registers",
-]
-
-[[package]]
 name = "iana-time-zone"
 version = "0.1.64"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5786,6 +5786,7 @@ dependencies = [
  "caliptra-mcu-external-otp-emulator",
  "caliptra-mcu-flash-ctrl-ast1040",
  "caliptra-mcu-flash-driver",
+ "caliptra-mcu-hyperram-ast1040",
  "caliptra-mcu-i3c-driver",
  "caliptra-mcu-mbox-comm",
  "caliptra-mcu-mbox-driver",
