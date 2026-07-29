@@ -136,6 +136,7 @@ members = [
     "platforms/ast2705/runtime/kernel/drivers/dramc",
     "platforms/ast1040/runtime/kernel/drivers/flash_ctrl",
     "platforms/ast2705/runtime/kernel/drivers/flash_ctrl",
+    "platforms/ast1040/runtime/kernel/drivers/hyperram",
     "platforms/ast1040/runtime/kernel/drivers/scu",
     "platforms/ast2705/runtime/kernel/drivers/scu",
     "platforms/ast2705/runtime/kernel/drivers/sli",
@@ -489,6 +490,7 @@ caliptra-mcu-dp-ast2705 = { path = "platforms/ast2705/runtime/kernel/drivers/dp"
 caliptra-mcu-dramc-ast2705 = { path = "platforms/ast2705/runtime/kernel/drivers/dramc" }
 caliptra-mcu-flash-ctrl-ast1040 = { path = "platforms/ast1040/runtime/kernel/drivers/flash_ctrl"}
 caliptra-mcu-flash-ctrl-ast2705 = { path = "platforms/ast2705/runtime/kernel/drivers/flash_ctrl"}
+caliptra-mcu-hyperram-ast1040 = { path = "platforms/ast1040/runtime/kernel/drivers/hyperram" }
 caliptra-mcu-scu-ast1040 = { path = "platforms/ast1040/runtime/kernel/drivers/scu" }
 caliptra-mcu-scu-ast2705 = { path = "platforms/ast2705/runtime/kernel/drivers/scu" }
 caliptra-mcu-sli-ast2705 = { path = "platforms/ast2705/runtime/kernel/drivers/sli" }

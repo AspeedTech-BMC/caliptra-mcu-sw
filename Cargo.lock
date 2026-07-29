@@ -5364,6 +5364,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "hyperram-ast1040"
+version = "0.1.0"
+dependencies = [
+ "caliptra-mcu-config-ast1040",
+ "caliptra-mcu-romtime",
+ "registers-peripherals",
+ "tock-registers",
+]
+
+[[package]]
 name = "iana-time-zone"
 version = "0.1.64"
 source = "registry+https://github.com/rust-lang/crates.io-index"
