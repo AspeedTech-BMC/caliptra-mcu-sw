@@ -4,6 +4,7 @@ use crate::aspeed_pci::{pci_init, AspeedPciConfig, PciePortConfig};
 use crate::io::Ast2705Uart16550;
 use caliptra_mcu_config_ast2705::peri;
 use caliptra_mcu_tock_veer::timers::InternalTimers;
+use caliptra_mcu_usb_ast2705::{AspeedUsbConfig, UsbFunction};
 use capsules_core::virtualizers::virtual_alarm::MuxAlarm;
 use kernel::utilities::StaticRef;
 use registers_peripherals::aspeed_dramc::SdramcRegisters;
@@ -17,6 +18,10 @@ use registers_peripherals::ast2705::aspeed_e2m::{
 };
 use registers_peripherals::ast2705::aspeed_scu0::SCU0Registers;
 use registers_peripherals::ast2705::aspeed_scu1::SCU1Registers;
+use registers_peripherals::ast2705::aspeed_usb::{
+    BEhciRegisters, UsbPhy2Registers, UsbPhy3Registers, USB0_EHCI_BASE, USB0_PHY2_BASE,
+    USB0_PHY3_BASE, USB1_EHCI_BASE, USB1_PHY2_BASE, USB1_PHY3_BASE,
+};
 use registers_peripherals::uart16550::Uart16550Registers;
 
 // Peripheral base address definition
@@ -42,6 +47,18 @@ pub const ASPEED_E2M0_BASE: StaticRef<E2m0Registers> =
     unsafe { StaticRef::new(E2M0_BASE as *const E2m0Registers) };
 pub const ASPEED_E2M1_BASE: StaticRef<E2m1Registers> =
     unsafe { StaticRef::new(E2M1_BASE as *const E2m1Registers) };
+pub const ASPEED_USB0_PHY3_BASE: StaticRef<UsbPhy3Registers> =
+    unsafe { StaticRef::new(USB0_PHY3_BASE as *const UsbPhy3Registers) };
+pub const ASPEED_USB0_PHY2_BASE: StaticRef<UsbPhy2Registers> =
+    unsafe { StaticRef::new(USB0_PHY2_BASE as *const UsbPhy2Registers) };
+pub const ASPEED_USB0_EHCI_BASE: StaticRef<BEhciRegisters> =
+    unsafe { StaticRef::new(USB0_EHCI_BASE as *const BEhciRegisters) };
+pub const ASPEED_USB1_PHY3_BASE: StaticRef<UsbPhy3Registers> =
+    unsafe { StaticRef::new(USB1_PHY3_BASE as *const UsbPhy3Registers) };
+pub const ASPEED_USB1_PHY2_BASE: StaticRef<UsbPhy2Registers> =
+    unsafe { StaticRef::new(USB1_PHY2_BASE as *const UsbPhy2Registers) };
+pub const ASPEED_USB1_EHCI_BASE: StaticRef<BEhciRegisters> =
+    unsafe { StaticRef::new(USB1_EHCI_BASE as *const BEhciRegisters) };
 
 const BOOTMCU_DRAM_BASE: u64 = 0x8000_0000;
 
@@ -53,6 +70,7 @@ pub struct Ast2705Peripherals<'a> {
     pub dramc: caliptra_mcu_dramc_ast2705::DramCtrl,
     pub dp: caliptra_mcu_dp_ast2705::AspeedDpCtrl,
     pub vga: caliptra_mcu_vga_ast2705::AspeedVgaCtrl,
+    pub usb: caliptra_mcu_usb_ast2705::AspeedUsbCtrl,
     pub ipc: caliptra_mcu_aspeed_ipc::AspeedIpcCtrl,
     pub primary_flash_ctrl: caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashCtrl<'a>,
     pub secondary_flash_ctrl: caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashCtrl<'a>,
@@ -86,6 +104,22 @@ impl<'a> Ast2705Peripherals<'a> {
                 ASPEED_SDRAMC_BASE,
                 ASPEED_E2M0_BASE,
                 ASPEED_E2M1_BASE,
+            ),
+            usb: caliptra_mcu_usb_ast2705::AspeedUsbCtrl::new(
+                ASPEED_SCU0_BASE,
+                ASPEED_SCU1_BASE,
+                ASPEED_USB0_PHY3_BASE,
+                ASPEED_USB0_PHY2_BASE,
+                ASPEED_USB0_EHCI_BASE,
+                ASPEED_USB1_PHY3_BASE,
+                ASPEED_USB1_PHY2_BASE,
+                ASPEED_USB1_EHCI_BASE,
+                AspeedUsbConfig {
+                    port_a_func: UsbFunction::EhciVhubAndXhciPhy,
+                    port_b_func: UsbFunction::EhciVhubAndXhciPhy,
+                    port_a_large_burst: false,
+                    port_b_large_burst: false,
+                },
             ),
             ipc: caliptra_mcu_aspeed_ipc::AspeedIpcCtrl::new(
                 peri::ASPEED_IPC_TX_ADDR,

@@ -127,7 +127,6 @@ members = [
     "xtask",
     # Aspeed specific members
     "runtime/kernel/drivers/ipc",
-    "runtime/kernel/drivers/soc",
     "platforms/ast2705/config",
     "platforms/ast2705/runtime",
     "platforms/ast2705/runtime/kernel/drivers/dp",
@@ -135,6 +134,7 @@ members = [
     "platforms/ast2705/runtime/kernel/drivers/flash_ctrl",
     "platforms/ast2705/runtime/kernel/drivers/scu",
     "platforms/ast2705/runtime/kernel/drivers/sli",
+    "platforms/ast2705/runtime/kernel/drivers/usb",
     "platforms/ast2705/runtime/kernel/drivers/vga",
     "platforms/ast2705/runtime/kernel/capsules",
     "platforms/ast2705/runtime/userspace/apps/user",
@@ -479,6 +479,7 @@ caliptra-mcu-dramc-ast2705 = { path = "platforms/ast2705/runtime/kernel/drivers/
 caliptra-mcu-flash-ctrl-ast2705 = { path = "platforms/ast2705/runtime/kernel/drivers/flash_ctrl"}
 caliptra-mcu-scu-ast2705 = { path = "platforms/ast2705/runtime/kernel/drivers/scu" }
 caliptra-mcu-sli-ast2705 = { path = "platforms/ast2705/runtime/kernel/drivers/sli" }
+caliptra-mcu-usb-ast2705 = { path = "platforms/ast2705/runtime/kernel/drivers/usb" }
 caliptra-mcu-vga-ast2705 = { path = "platforms/ast2705/runtime/kernel/drivers/vga" }
 registers-peripherals = { path = "registers/generated-peripherals" }
 

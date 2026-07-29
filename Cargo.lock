@@ -2885,6 +2885,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "caliptra-mcu-usb-ast2705"
+version = "0.1.0"
+dependencies = [
+ "caliptra-mcu-romtime",
+ "kernel",
+ "registers-peripherals",
+]
+
+[[package]]
 name = "caliptra-mcu-usb-emulator"
 version = "0.1.0"
 dependencies = [
@@ -5659,6 +5668,7 @@ dependencies = [
  "caliptra-mcu-scu-ast2705",
  "caliptra-mcu-sli-ast2705",
  "caliptra-mcu-tock-veer",
+ "caliptra-mcu-usb-ast2705",
  "caliptra-mcu-vga-ast2705",
  "capsules-core",
  "capsules-extra",

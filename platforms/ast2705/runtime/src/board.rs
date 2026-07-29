@@ -720,6 +720,7 @@ pub unsafe fn main() {
     _ = ast2705_peripherals.dramc.init(bootdev);
     _ = ast2705_peripherals.scu0.init(bootdev);
     _ = ast2705_peripherals.vga.init(bootdev);
+    _ = ast2705_peripherals.usb.init();
 
     let peripherals = static_init!(
         VeeRDefaultPeripherals,
