@@ -135,6 +135,7 @@ members = [
     "platforms/ast2705/runtime/kernel/drivers/flash_ctrl",
     "platforms/ast2705/runtime/kernel/drivers/scu",
     "platforms/ast2705/runtime/kernel/drivers/sli",
+    "platforms/ast2705/runtime/kernel/drivers/vga",
     "platforms/ast2705/runtime/kernel/capsules",
     "platforms/ast2705/runtime/userspace/apps/user",
     "registers/generated-peripherals",
@@ -478,6 +479,7 @@ caliptra-mcu-dramc-ast2705 = { path = "platforms/ast2705/runtime/kernel/drivers/
 caliptra-mcu-flash-ctrl-ast2705 = { path = "platforms/ast2705/runtime/kernel/drivers/flash_ctrl"}
 caliptra-mcu-scu-ast2705 = { path = "platforms/ast2705/runtime/kernel/drivers/scu" }
 caliptra-mcu-sli-ast2705 = { path = "platforms/ast2705/runtime/kernel/drivers/sli" }
+caliptra-mcu-vga-ast2705 = { path = "platforms/ast2705/runtime/kernel/drivers/vga" }
 registers-peripherals = { path = "registers/generated-peripherals" }
 
 # Always optimize the emulator during tests, as it is a major bottleneck for

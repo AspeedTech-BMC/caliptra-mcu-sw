@@ -66,7 +66,12 @@ pub SdramcRegisters {
     (0x00D4 => pub _reserved_d4_to_ff: [u8; 0x2C]),
 
     (0x0100 => pub gfmcfg: ReadOnly<u32>),
-    (0x0104 => _reserved_104_to_1ff: [u8; 0xFC]),
+    (0x0104 => pub gfm0ctl: ReadWrite<u32>),
+    (0x0108 => pub gfm1ctl: ReadWrite<u32>),
+    /// Per-node graphics-memory base address, packed as two 16-bit halves:
+    /// bits [15:0] = node 0 GM base, bits [31:16] = node 1 GM base.
+    (0x010C => pub gm_base: ReadWrite<u32>),
+    (0x0110 => _reserved_110_to_1ff: [u8; 0xF0]),
 
     // 省略: port[6], region[16] 等（若要啟 MPU/QoS 再展開）
     (0x0200 => @END),

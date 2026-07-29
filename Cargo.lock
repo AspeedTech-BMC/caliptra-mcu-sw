@@ -2911,6 +2911,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "caliptra-mcu-vga-ast2705"
+version = "0.1.0"
+dependencies = [
+ "caliptra-mcu-capsules-runtime",
+ "caliptra-mcu-dramc-ast2705",
+ "caliptra-mcu-romtime",
+ "kernel",
+ "registers-peripherals",
+]
+
+[[package]]
 name = "caliptra-mcu-xtask"
 version = "0.1.0"
 dependencies = [
@@ -5648,6 +5659,7 @@ dependencies = [
  "caliptra-mcu-scu-ast2705",
  "caliptra-mcu-sli-ast2705",
  "caliptra-mcu-tock-veer",
+ "caliptra-mcu-vga-ast2705",
  "capsules-core",
  "capsules-extra",
  "capsules-system",

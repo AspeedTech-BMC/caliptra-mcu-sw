@@ -719,6 +719,7 @@ pub unsafe fn main() {
     ast2705_peripherals.dp.set_client(&ast2705_peripherals.sli);
     _ = ast2705_peripherals.dramc.init(bootdev);
     _ = ast2705_peripherals.scu0.init(bootdev);
+    _ = ast2705_peripherals.vga.init(bootdev);
 
     let peripherals = static_init!(
         VeeRDefaultPeripherals,

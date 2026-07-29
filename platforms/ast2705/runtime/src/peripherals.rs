@@ -12,6 +12,9 @@ use registers_peripherals::aspeed_spi::AspeedSpiRegisters;
 use registers_peripherals::ast2705::aspeed_dpmcu::{
     DpMcuRegisters, DpRegisters, DP_BASE, MCU_REG_BASE,
 };
+use registers_peripherals::ast2705::aspeed_e2m::{
+    E2m0Registers, E2m1Registers, E2M0_BASE, E2M1_BASE,
+};
 use registers_peripherals::ast2705::aspeed_scu0::SCU0Registers;
 use registers_peripherals::ast2705::aspeed_scu1::SCU1Registers;
 use registers_peripherals::uart16550::Uart16550Registers;
@@ -35,6 +38,10 @@ pub const ASPEED_DPMCU_REG_BASE: StaticRef<DpMcuRegisters> =
     unsafe { StaticRef::new(MCU_REG_BASE as *const DpMcuRegisters) };
 pub const ASPEED_DP_BASE: StaticRef<DpRegisters> =
     unsafe { StaticRef::new(DP_BASE as *const DpRegisters) };
+pub const ASPEED_E2M0_BASE: StaticRef<E2m0Registers> =
+    unsafe { StaticRef::new(E2M0_BASE as *const E2m0Registers) };
+pub const ASPEED_E2M1_BASE: StaticRef<E2m1Registers> =
+    unsafe { StaticRef::new(E2M1_BASE as *const E2m1Registers) };
 
 const BOOTMCU_DRAM_BASE: u64 = 0x8000_0000;
 
@@ -45,6 +52,7 @@ pub struct Ast2705Peripherals<'a> {
     pub uart: Ast2705Uart16550<'a>,
     pub dramc: caliptra_mcu_dramc_ast2705::DramCtrl,
     pub dp: caliptra_mcu_dp_ast2705::AspeedDpCtrl,
+    pub vga: caliptra_mcu_vga_ast2705::AspeedVgaCtrl,
     pub ipc: caliptra_mcu_aspeed_ipc::AspeedIpcCtrl,
     pub primary_flash_ctrl: caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashCtrl<'a>,
     pub secondary_flash_ctrl: caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashCtrl<'a>,
@@ -72,6 +80,12 @@ impl<'a> Ast2705Peripherals<'a> {
                 ASPEED_DPMCU_REG_BASE,
                 ASPEED_DP_BASE,
                 ASPEED_SCU0_BASE,
+            ),
+            vga: caliptra_mcu_vga_ast2705::AspeedVgaCtrl::new(
+                ASPEED_SCU0_BASE,
+                ASPEED_SDRAMC_BASE,
+                ASPEED_E2M0_BASE,
+                ASPEED_E2M1_BASE,
             ),
             ipc: caliptra_mcu_aspeed_ipc::AspeedIpcCtrl::new(
                 peri::ASPEED_IPC_TX_ADDR,
