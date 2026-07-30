@@ -3626,6 +3626,27 @@ impl DramCtrl {
         self.reg.refctl.modify(aspeed_dramc::REFCTL::REF_DIS.val(0));
     }
 
+    /// VRAM address-offset bits (cursor, 2D) for `gfmN_ctl`, per node
+    /// (`ast_vga_get_gfm_ctrl`).
+    fn vga_gfm_ctrl(node: u8) -> u32 {
+        if node == 1 {
+            (1 << 19) | (1 << 28)
+        } else {
+            (1 << 10) | (1 << 27)
+        }
+    }
+
+    /// Enables VRAM address-offset access (cursor, 2D) for both
+    /// graphics-memory nodes (`sdramc_setup_vga_access`).
+    ///
+    /// This lives in dramc rather than vga: `gfm0ctl`/`gfm1ctl` become
+    /// locked/read-only once DRAM's hardlock step runs, which happens
+    /// before vga's own init — so vga can no longer write them by then.
+    fn setup_vga_access(&self) {
+        self.reg.gfm0ctl.set(Self::vga_gfm_ctrl(0));
+        self.reg.gfm1ctl.set(Self::vga_gfm_ctrl(1));
+    }
+
     fn load_phy_image(&self, img_id: u32) -> Result<(), ErrorCode> {
         if let Some(b) = self.bootdev.get() {
             if let Some(client) = self.client_ref.get() {
@@ -3751,6 +3772,7 @@ impl DramCtrl {
         let _ = self.load_phy_image(image_id::DDR5_IMEM_PHY);
         let _ = self.load_phy_image(image_id::DDR5_DMEM_PHY);
 
+        self.setup_vga_access();
         return Ok(());
     }
 }
