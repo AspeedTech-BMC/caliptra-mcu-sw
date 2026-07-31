@@ -95,7 +95,7 @@ const SLI_MAX_POLL_CNT_SUSPEND: i32 = 10;
 
 const AHBC_MAX_TIMEOUT: u32 = 0x1ff;
 
-const TIMER_FREQUENCY_HZ: u64 = 1_000_000;
+const TIMER_FREQUENCY_HZ: u64 = 400_000_000;
 
 fn udelay(us: u32) {
     let start = caliptra_mcu_romtime::mcycle();
