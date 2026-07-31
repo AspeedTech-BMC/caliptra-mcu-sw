@@ -9,6 +9,7 @@ use kernel::utilities::registers::interfaces::{ReadWriteable, Readable, Writeabl
 use kernel::utilities::StaticRef;
 use kernel::ErrorCode;
 use registers_peripherals::aspeed_dramc;
+use registers_peripherals::ast2705::aspeed_scu0::{SCU0Registers, VgaScratch};
 
 const EXEC_TRAINING_FW: &[(usize, u16)] = &[
     (0x00D0000, 0x0001),
@@ -3322,6 +3323,7 @@ impl DwcDdrPhy {
 // Replace struct definition:
 pub struct DramCtrl {
     reg: StaticRef<aspeed_dramc::SdramcRegisters>,
+    scu0: StaticRef<SCU0Registers>,
     ddrphy: DwcDdrPhy,
     bootdev: OptionalCell<&'static dyn KernelImageLoader>,
     client_ref: OptionalCell<&'static dyn KernelImageClient>,
@@ -3329,9 +3331,14 @@ pub struct DramCtrl {
 
 // Replace new():
 impl DramCtrl {
-    pub fn new(base: StaticRef<aspeed_dramc::SdramcRegisters>, ddr_phy_base: u32) -> Self {
+    pub fn new(
+        base: StaticRef<aspeed_dramc::SdramcRegisters>,
+        scu0: StaticRef<SCU0Registers>,
+        ddr_phy_base: u32,
+    ) -> Self {
         Self {
             reg: base,
+            scu0,
             ddrphy: DwcDdrPhy::new(ddr_phy_base as usize, DramType::Ddr5),
             bootdev: OptionalCell::empty(),
             client_ref: OptionalCell::empty(),
@@ -3647,6 +3654,19 @@ impl DramCtrl {
         self.reg.gfm1ctl.set(Self::vga_gfm_ctrl(1));
     }
 
+    /// Marks DRAM as initialized in both VGA scratch registers
+    /// (`sdramc_set_flag(DRAMC_INIT_DONE)`) — `DramInitStatus` is the same
+    /// bit (BIT(6)) as the reference's `DRAMC_INIT_DONE`. This lets VGA/its
+    /// VBIOS know DRAM was brought up by SOC firmware (us).
+    fn set_dram_init_done(&self) {
+        self.scu0
+            .vga0_scratch1
+            .modify(VgaScratch::DramInitStatus::SET);
+        self.scu0
+            .vga1_scratch1
+            .modify(VgaScratch::DramInitStatus::SET);
+    }
+
     fn load_phy_image(&self, img_id: u32) -> Result<(), ErrorCode> {
         if let Some(b) = self.bootdev.get() {
             if let Some(client) = self.client_ref.get() {
@@ -3718,6 +3738,7 @@ impl DramCtrl {
 
         // DRAM PHY init done, self-refresh
         self.dram_self_refresh();
+        self.set_dram_init_done();
     }
 
     fn ddr5_imem_phy_load_done(&self, img_id: u32, addr: u64, size: u32) {
@@ -3741,6 +3762,7 @@ impl DramCtrl {
 
         // DRAM PHY init done, self-refresh
         self.dram_self_refresh();
+        self.set_dram_init_done();
     }
 
     /// Called from board.rs after set_bootdev(). Kicks off the DRAM init chain.
