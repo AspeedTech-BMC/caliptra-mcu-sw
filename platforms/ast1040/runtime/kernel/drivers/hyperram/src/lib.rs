@@ -122,6 +122,7 @@ impl AspeedHyperRamCtrl {
         self.arb.mr_ctrl.set(0);
 
         self.phy_calibrate()?;
+        self.clear_data(peri::ASPEED_HYPERRAM_ADDR, HYPERRAM_MAX_SIZE);
 
         let ecc_enabled = self.scu.otpcfg22.is_set(OtpCfg22::HYPERECC_ENABLE);
         caliptra_mcu_romtime::println!(
@@ -362,19 +363,17 @@ impl AspeedHyperRamCtrl {
         );
     }
 
-    fn ecc_clear(&self) {
-        let start_addr = (self.arb.eccaddr.read(EccAddr::START) * HYPERRAM_ECC_ADDR_UNIT)
-            .wrapping_add(peri::ASPEED_HYPERRAM_ADDR);
-        let length = self.arb.eccaddr.read(EccAddr::LEN) * HYPERRAM_ECC_ADDR_UNIT;
+    fn clear_data(&self, start_addr: u32, length: u32) {
         let mut addr = start_addr as *mut u32;
         caliptra_mcu_romtime::println!(
-            "[hyperram:init] ECC scrub start: start={:#010x}, len={:#010x}, end={:#010x}",
+            "[hyperram:init] zero fill: start={:#010x}, len={:#010x}, end={:#010x}",
             start_addr,
             length,
             start_addr.wrapping_add(length)
         );
 
-        // SAFETY: ECC configuration limits the decoded range to HyperRAM.
+        // SAFETY: the caller limits the range to the usable HyperRAM data
+        // window, which initialization exclusively owns.
         unsafe {
             let end = addr.add((length / core::mem::size_of::<u32>() as u32) as usize);
             while addr < end {
@@ -386,7 +385,6 @@ impl AspeedHyperRamCtrl {
 
     fn ecc_enable(&self) {
         self.ecc_config(0, HYPERRAM_ECC_EFFECTIVE_SIZE);
-        self.ecc_clear();
         self.arb
             .ctrl1
             .modify(Ctrl1::ECC_ENC_EN::SET + Ctrl1::ECC_DEC_EN::SET);
