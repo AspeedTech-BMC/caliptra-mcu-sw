@@ -268,6 +268,20 @@ impl AspeedSliCtrl {
 
         intc.prot.modify(IntcProt::EnableCpudResetSrc::SET);
 
+        retry = 10;
+        while die0.slih.ctrl1.get() == 0x52742700 {
+            mdelay(10);
+            sli_log!("[sli] dummy read to avoid access timeout");
+            retry -= 1;
+            if retry == 0 {
+                break;
+            }
+        }
+
+        if retry == 0 {
+            caliptra_mcu_romtime::println!("[sli] slih access timeout");
+        }
+
         // Calibrate video: US direction (IO→CPU), k on RX side.
         die1.sliv.ctrl3.set(0);
         calibrate_video_delay(
