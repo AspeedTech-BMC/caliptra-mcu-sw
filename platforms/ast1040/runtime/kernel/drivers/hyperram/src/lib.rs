@@ -122,7 +122,6 @@ impl AspeedHyperRamCtrl {
         self.arb.mr_ctrl.set(0);
 
         self.phy_calibrate()?;
-        self.clear_data(peri::ASPEED_HYPERRAM_ADDR, HYPERRAM_MAX_SIZE);
 
         let ecc_enabled = self.scu.otpcfg22.is_set(OtpCfg22::HYPERECC_ENABLE);
         caliptra_mcu_romtime::println!(
@@ -132,6 +131,9 @@ impl AspeedHyperRamCtrl {
         );
         if ecc_enabled {
             self.ecc_enable();
+            self.clear_data(peri::ASPEED_HYPERRAM_ADDR, HYPERRAM_ECC_EFFECTIVE_SIZE);
+        } else {
+            self.clear_data(peri::ASPEED_HYPERRAM_ADDR, HYPERRAM_MAX_SIZE);
         }
 
         caliptra_mcu_romtime::println!(
