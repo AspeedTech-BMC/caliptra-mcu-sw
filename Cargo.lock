@@ -1869,10 +1869,13 @@ dependencies = [
 name = "caliptra-mcu-hyperram-ast1040"
 version = "0.1.0"
 dependencies = [
+ "caliptra-api",
  "caliptra-mcu-config-ast1040",
  "caliptra-mcu-romtime",
  "registers-peripherals",
  "tock-registers",
+ "zerocopy",
+ "zeroize",
 ]
 
 [[package]]

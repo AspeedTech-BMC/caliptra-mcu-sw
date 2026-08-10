@@ -7,7 +7,10 @@ authors.workspace = true
 edition.workspace = true
 
 [dependencies]
+caliptra-api.workspace = true
 caliptra-mcu-config-ast1040.workspace = true
 caliptra-mcu-romtime.workspace = true
 registers-peripherals = { workspace = true, features = ["ast1040-register"] }
 tock-registers.workspace = true
+zerocopy.workspace = true
+zeroize.workspace = true
