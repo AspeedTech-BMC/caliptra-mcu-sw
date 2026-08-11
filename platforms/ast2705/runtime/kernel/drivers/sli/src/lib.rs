@@ -18,11 +18,7 @@ use kernel::utilities::registers::ReadWrite;
 use kernel::utilities::StaticRef;
 use registers_peripherals::ast2705::aspeed_scu0::{SCU0Registers, Scu0SliStatus};
 use registers_peripherals::ast2705::aspeed_scu1::{SCU1Registers, Scu1SliStatus};
-use registers_peripherals::ast2705::aspeed_sli::{
-    AhbcRegisters, CtrlI, CtrlII, CtrlIIISlih, CtrlIIISlim, CtrlIIISliv, CtrlIVSlim, IntcProt,
-    Intr, IoIntcRegisters, MarbFunc, SliHRegisters, SliMRegisters, SliVRegisters, AHBC0_BASE,
-    AHBC1_BASE, IO_INTC_BASE, SLI0_BASE, SLI1_BASE, SLIH_OFFSET, SLIM_OFFSET, SLIV_OFFSET,
-};
+use registers_peripherals::ast2705::aspeed_sli::*;
 
 /// Common MMIO fields shared by all three SLI sub-blocks (H, M, V).
 trait SliBlockCommon {
@@ -214,6 +210,7 @@ impl AspeedSliCtrl {
         // Reset the remote (CPU-die) SLIH and wait for it to re-suspend.
         sli_clear(&die0.slih, CtrlI::ClearBus::SET.value);
         sli_wait_suspend(&die0.slih);
+        die1.slih.pad_ctrl.modify(PadCtrl::tx_drv.val(7));
     }
 
     /// IO-die TX calibration: waits for CPU-die ready flag, then calibrates video.
