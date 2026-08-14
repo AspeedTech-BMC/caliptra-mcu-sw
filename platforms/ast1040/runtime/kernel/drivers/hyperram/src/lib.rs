@@ -29,6 +29,9 @@ const MM_RESET_VAL: u32 = 0x0001_43E8;
 const DQSTMO_VAL: u32 = 0x0000_0026;
 const CR0_TIMING_VAL: u32 = 0x0000_8F5F;
 
+// Temporary bring-up override. Set to false once ECC OTP is provisioned.
+const FORCE_ECC_WITHOUT_OTP: bool = true;
+
 const RESET_DONE_RETRIES: u32 = 1_000_000;
 
 const CAL_TEST_START: u32 = peri::ASPEED_HYPERRAM_ADDR;
@@ -194,10 +197,13 @@ impl AspeedHyperRamCtrl {
             aes_config.zeroize();
         }
 
-        let ecc_enabled = self.scu.otpcfg22.is_set(OtpCfg22::HYPERECC_ENABLE);
+        let ecc_enabled_by_otp = self.scu.otpcfg22.is_set(OtpCfg22::HYPERECC_ENABLE);
+        let ecc_enabled = FORCE_ECC_WITHOUT_OTP || ecc_enabled_by_otp;
         caliptra_mcu_romtime::println!(
-            "[hyperram:init] ECC requested by OTP: {}, otpcfg22={:#010x}",
+            "[hyperram:init] ECC enabled={}, forced={}, otp={}, otpcfg22={:#010x}",
             ecc_enabled,
+            FORCE_ECC_WITHOUT_OTP,
+            ecc_enabled_by_otp,
             self.scu.otpcfg22.get()
         );
         if ecc_enabled {
