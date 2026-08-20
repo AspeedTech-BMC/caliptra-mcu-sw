@@ -60,8 +60,6 @@ pub const ASPEED_USB1_PHY2_BASE: StaticRef<UsbPhy2Registers> =
 pub const ASPEED_USB1_EHCI_BASE: StaticRef<BEhciRegisters> =
     unsafe { StaticRef::new(USB1_EHCI_BASE as *const BEhciRegisters) };
 
-const BOOTMCU_DRAM_BASE: u64 = 0x8000_0000;
-
 pub struct Ast2705Peripherals<'a> {
     pub soc: caliptra_mcu_aspeed_soc::AspeedSoCCtrl,
     pub scu0: caliptra_mcu_scu_ast2705::AspeedScuCtrl,
@@ -126,7 +124,8 @@ impl<'a> Ast2705Peripherals<'a> {
                 peri::ASPEED_IPC_TX_ADDR,
                 peri::ASPEED_IPC_RX_ADDR,
                 0,
-                BOOTMCU_DRAM_BASE,
+                peri::ASPEED_IPC_SHM_ADDR as u64,
+                peri::ASPEED_IPC_SHM_SIZE as u64,
             ),
             primary_flash_ctrl: caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashCtrl::new(
                 PRIMARY_FLASH_CTRL_BASE,

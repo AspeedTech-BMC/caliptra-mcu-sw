@@ -334,7 +334,10 @@ impl SyscallDriver for BootDevCapsule<'_> {
                 }
                 self.active_app.set(pid);
 
-                // Boot from spi flash by default
+                /* 0: IPC
+                 * 1: Flash
+                 * Boot from spi flash by default
+                 */
                 self.set_flash_dev_policy(Some(1));
 
                 CommandReturn::success()

@@ -222,6 +222,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "aspeed-ipc-protocol"
+version = "0.1.0"
+dependencies = [
+ "zerocopy",
+]
+
+[[package]]
 name = "ast2705-user-app"
 version = "0.1.0"
 dependencies = [
@@ -1139,6 +1146,7 @@ dependencies = [
 name = "caliptra-mcu-capsules-runtime"
 version = "0.1.0"
 dependencies = [
+ "aspeed-ipc-protocol",
  "bitfield",
  "caliptra-api",
  "caliptra-mcu-aspeed-ipc",
