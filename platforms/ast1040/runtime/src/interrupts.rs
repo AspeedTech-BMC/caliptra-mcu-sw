@@ -10,6 +10,13 @@ pub const IPC1_IRQ: u8 = 0x22;
 #[cfg(any(feature = "doe", feature = "test-doe-transport-loopback"))]
 pub const DOE_MBOX_EVENT_IRQ: u8 = 0x19;
 
+pub const USED_IRQS: &[u32] = &[
+    IPC0_IRQ as u32,
+    IPC1_IRQ as u32,
+    DMA_EVENT_IRQ as u32,
+    DMA_ERROR_IRQ as u32,
+];
+
 impl<'a> InterruptService for Ast1040Peripherals<'a> {
     unsafe fn service_interrupt(&self, interrupt: u32) -> bool {
         if interrupt == IPC0_IRQ as u32 || interrupt == IPC1_IRQ as u32 {

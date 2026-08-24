@@ -48,11 +48,6 @@ impl Ast1040ScuCtrl {
         // Configure PSP RAM size: 14 MB
         scu.psp_ram_size.set(0x00e0_0000);
 
-        // Disable uart interrupt
-        unsafe {
-            core::ptr::write_volatile(0x3413_0210 as *mut u32, 0);
-        }
-
         // Release reset and trigger PSP enable
         scu.psp_ctrl1
             .modify(PspCtrl1::RESET::SET + PspCtrl1::ENABLE::SET);

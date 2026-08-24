@@ -1105,8 +1105,14 @@ pub unsafe fn main() {
         caliptra_mcu_mbox_driver::McuMailbox<'static, InternalTimers<'static>>
     ));
 
-    // Need to enable all interrupts for Tock Kernel
-    chip.enable_pic_interrupts();
+    // Enable only the PIC lines the kernel actually services: the
+    // ast1040 peripherals plus the VeeR common peripherals (I3C / MCI).
+    // Every other line stays masked.
+    chip.enable_specific_pic_interrupts(crate::interrupts::USED_IRQS);
+    chip.enable_specific_pic_interrupts(&[
+        caliptra_mcu_tock_veer::chip::I3C_IRQ as u32,
+        caliptra_mcu_tock_veer::chip::MCI_IRQ as u32,
+    ]);
     chip.enable_timer_interrupts();
 
     // enable interrupts globally
