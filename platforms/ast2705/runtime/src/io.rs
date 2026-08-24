@@ -21,6 +21,7 @@ use core::ptr::{read_volatile, write_volatile};
 #[cfg(not(feature = "release"))]
 use kernel::debug;
 use kernel::debug::IoWrite;
+use kernel::deferred_call::{DeferredCall, DeferredCallClient};
 use kernel::hil;
 use kernel::utilities::cells::{OptionalCell, TakeCell};
 use kernel::utilities::StaticRef;
@@ -85,25 +86,41 @@ impl Write for Writer {
 
 impl IoWrite for Writer {
     fn write(&mut self, buf: &[u8]) -> usize {
-        let uart = Ast2705Uart16550::new(crate::peripherals::ASPEED_UART_BASE);
-        let last_char_idx = buf.len().saturating_sub(1);
-
         if buf.is_empty() {
             return 0;
         }
+        let regs = crate::peripherals::ASPEED_UART_BASE;
+        let last_char_idx = buf.len() - 1;
 
-        uart.transmit_sync(&buf[..last_char_idx]);
-        if buf[last_char_idx] == b'\n' {
-            uart.transmit_sync(b"\r");
+        // Save/disable/restore the interrupt-enable register once for the
+        // whole write, rather than once per `uart_transmit_bytes` call.
+        let prev_ier = regs.ier.extract();
+        if prev_ier.is_set(IER::ETBEI) {
+            regs.ier.modify_no_read(prev_ier, IER::ETBEI::CLEAR);
         }
-        uart.transmit_sync(&buf[last_char_idx..]);
+
+        uart_transmit_bytes(regs, &buf[..last_char_idx]);
+        if buf[last_char_idx] == b'\n' {
+            uart_transmit_bytes(regs, b"\r");
+        }
+        uart_transmit_bytes(regs, &buf[last_char_idx..]);
+
+        regs.ier.set(prev_ier.get());
 
         buf.len()
     }
 }
 
-fn read_byte() -> u8 {
-    0
+// Synchronous, busy-wait UART transmit that only touches the raw registers.
+// Used by the panic/debug `Writer`, which must not build a full
+// `Ast2705Uart16550` (its `DeferredCall` field would register a new
+// deferred call on every print, eventually overflowing the kernel's fixed
+// deferred-call table).
+fn uart_transmit_bytes(regs: StaticRef<Uart16550Registers>, bytes: &[u8]) {
+    for byte in bytes.iter() {
+        while !regs.lsr.is_set(LSR::TxterEmpty) {}
+        regs.rbr_thr.write(THR::Data.val((*byte).into()));
+    }
 }
 
 pub struct Ast2705Uart16550<'a> {
@@ -112,10 +129,7 @@ pub struct Ast2705Uart16550<'a> {
     rx_client: OptionalCell<&'a dyn hil::uart::ReceiveClient>,
     tx_buffer: TakeCell<'static, [u8]>,
     tx_len: Cell<usize>,
-    tx_index: Cell<usize>,
-    rx_buffer: TakeCell<'static, [u8]>,
-    rx_len: Cell<usize>,
-    rx_index: Cell<usize>,
+    deferred_call: DeferredCall,
 }
 
 impl<'a> Ast2705Uart16550<'a> {
@@ -126,108 +140,7 @@ impl<'a> Ast2705Uart16550<'a> {
             rx_client: OptionalCell::empty(),
             tx_buffer: TakeCell::empty(),
             tx_len: Cell::new(0),
-            tx_index: Cell::new(0),
-            rx_buffer: TakeCell::empty(),
-            rx_len: Cell::new(0),
-            rx_index: Cell::new(0),
-        }
-    }
-
-    pub fn handle_interrupt(&self) {
-        let iir = self.regs.iir_fcr.extract();
-
-        if !iir.matches_all(IIR::Pending::Pending) {
-            return;
-        }
-
-        if iir.matches_all(IIR::Identification::ThrEmpty) {
-            self.transmit_continue();
-        } else if iir.matches_all(IIR::Identification::RxDataAvailable) {
-            self.receive();
-        } else if iir.matches_all(IIR::Identification::ModemStatusChange) {
-            self.regs.msr.get();
-        } else if iir.matches_all(IIR::Identification::RxLineStatus) {
-            self.regs.lsr.get();
-        } else if iir.matches_all(IIR::Identification::Timeout) {
-            self.regs.rbr_thr.get();
-        } else {
-            panic!("UART 16550: unknown interrupt");
-        }
-    }
-
-    fn transmit_sync(&self, bytes: &[u8]) {
-        let prev_ier = self.regs.ier.extract();
-        if prev_ier.is_set(IER::ETBEI) {
-            self.regs.ier.modify_no_read(prev_ier, IER::ETBEI::CLEAR);
-        }
-
-        for byte in bytes.iter() {
-            while !self.regs.lsr.is_set(LSR::TxterEmpty) {}
-            self.regs.rbr_thr.write(THR::Data.val((*byte).into()));
-        }
-
-        // Restore the IER register to its original state
-        self.regs.ier.set(prev_ier.get());
-    }
-
-    fn transmit_continue(&self) {
-        // This should only be called as a result of a transmit
-        // interrupt
-
-        // Get the current transmission information
-        let mut index = self.tx_index.get();
-        let tx_data = self.tx_buffer.take().expect("UART 16550: no tx buffer");
-
-        if index < self.tx_len.get() {
-            // Still data to send
-            while index < self.tx_len.get() && self.regs.lsr.is_set(LSR::THRE) {
-                // self.regs.rbr_thr.write(THR::Data.val(tx_data[index]));
-                self.regs
-                    .rbr_thr
-                    .write(THR::Data.val(tx_data[index].into()));
-                index += 1;
-            }
-
-            // Put the updated index and buffer back, wait for an
-            // interrupt
-            self.tx_index.set(index);
-            self.tx_buffer.replace(tx_data);
-        } else {
-            // We are finished, disable tx interrupts
-            self.regs.ier.modify(IER::ETBEI::CLEAR);
-
-            // Callback to the client
-            self.tx_client
-                .map(move |client| client.transmitted_buffer(tx_data, self.tx_len.get(), Ok(())));
-        }
-    }
-
-    fn receive(&self) {
-        // Receive interrupts must only be enabled when we're currently holding
-        // a buffer to receive data into:
-        let rx_buffer = self.rx_buffer.take().expect("UART 16550: no rx buffer");
-        let len = self.rx_len.get();
-        let mut index = self.rx_index.get();
-
-        // Read in a while loop, until no more data in the FIFO
-        while self.regs.lsr.is_set(LSR::DR) && index < len {
-            // rx_buffer[index] = self.regs.rbr_thr.get();
-            rx_buffer[index] = self.regs.rbr_thr.get().try_into().unwrap();
-            index += 1;
-        }
-
-        // Check whether we've read sufficient data:
-        if index == len {
-            // We're done, disable interrupts and return to the client:
-            self.regs.ier.modify(IER::ERBFI::CLEAR);
-
-            self.rx_client.map(move |client| {
-                client.received_buffer(rx_buffer, len, Ok(()), hil::uart::Error::None)
-            });
-        } else {
-            // Store the new index and place the buffer back:
-            self.rx_index.set(index);
-            self.rx_buffer.replace(rx_buffer);
+            deferred_call: DeferredCall::new(),
         }
     }
 }
@@ -294,13 +207,11 @@ impl<'a> hil::uart::Transmit<'a> for Ast2705Uart16550<'a> {
             return Err((ErrorCode::BUSY, tx_data));
         }
 
-        // Enable interrupts for the transmitter holding register
-        // being empty such that we can callback to the client
-        self.regs.ier.modify(IER::ETBEI::SET);
-
-        // Start transmitting the first data word(s) already
+        // Transmit the whole buffer synchronously; the completion callback
+        // is delivered via a deferred call rather than the THR-empty
+        // interrupt, so this path keeps working even when the UART
+        // interrupt line is masked at the PIC.
         let mut index = 0;
-        // while index < tx_len && self.regs.lsr.is_set(LSR::THREmpty) {
         while index < tx_len {
             while !self.regs.lsr.is_set(LSR::THRE) {}
             self.regs
@@ -309,11 +220,9 @@ impl<'a> hil::uart::Transmit<'a> for Ast2705Uart16550<'a> {
             index += 1;
         }
 
-        // Store the required buffer and information for the interrupt
-        // handler
         self.tx_buffer.replace(tx_data);
         self.tx_len.set(tx_len);
-        self.tx_index.set(index);
+        self.deferred_call.set();
 
         Ok(())
     }
@@ -335,26 +244,11 @@ impl<'a> hil::uart::Receive<'a> for Ast2705Uart16550<'a> {
     fn receive_buffer(
         &self,
         rx_buffer: &'static mut [u8],
-        rx_len: usize,
+        _rx_len: usize,
     ) -> Result<(), (ErrorCode, &'static mut [u8])> {
-        // Ensure the provided buffer holds at least `rx_len` bytes, and
-        // `rx_len` is strictly positive (otherwise we'd need to use deferred
-        // calls):
-        if rx_buffer.len() < rx_len && rx_len > 0 {
-            return Err((ErrorCode::SIZE, rx_buffer));
-        }
-
-        // Store the receive buffer and byte count. We cannot call into the
-        // generic receive routine here, as the client callback needs to be
-        // called from another call stack. Hence simply enable interrupts here.
-        self.rx_buffer.replace(rx_buffer);
-        self.rx_len.set(rx_len);
-        self.rx_index.set(0);
-
-        // Enable receive interrupts:
-        self.regs.ier.modify(IER::ERBFI::SET);
-
-        Ok(())
+        // UART receive is not serviced: the UART interrupt line is masked
+        // at the PIC, so there is no interrupt to drive completion.
+        Err((ErrorCode::FAIL, rx_buffer))
     }
 
     fn receive_abort(&self) -> Result<(), ErrorCode> {
@@ -366,5 +260,19 @@ impl<'a> hil::uart::Receive<'a> for Ast2705Uart16550<'a> {
     fn receive_word(&self) -> Result<(), ErrorCode> {
         // Currently unsupported.
         Err(ErrorCode::FAIL)
+    }
+}
+
+impl<'a> DeferredCallClient for Ast2705Uart16550<'a> {
+    fn register(&'static self) {
+        self.deferred_call.register(self);
+    }
+
+    fn handle_deferred_call(&self) {
+        if let Some(tx_buf) = self.tx_buffer.take() {
+            let len = self.tx_len.get();
+            self.tx_client
+                .map(move |client| client.transmitted_buffer(tx_buf, len, Ok(())));
+        }
     }
 }

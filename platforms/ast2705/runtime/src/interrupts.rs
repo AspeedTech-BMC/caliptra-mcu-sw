@@ -3,7 +3,6 @@
 use crate::peripherals::Ast2705Peripherals;
 use kernel::platform::chip::InterruptService;
 
-pub const UART_IRQ: u8 = 0x95;
 pub const DMA_EVENT_IRQ: u8 = 0x17;
 pub const DMA_ERROR_IRQ: u8 = 0x18;
 pub const IPC0_IRQ: u8 = 0x21;
@@ -17,17 +16,13 @@ pub const DOE_MBOX_EVENT_IRQ: u8 = 0x19;
 pub const USED_IRQS: &[u32] = &[
     IPC0_IRQ as u32,
     IPC1_IRQ as u32,
-    UART_IRQ as u32,
     DMA_EVENT_IRQ as u32,
     DMA_ERROR_IRQ as u32,
 ];
 
 impl<'a> InterruptService for Ast2705Peripherals<'a> {
     unsafe fn service_interrupt(&self, interrupt: u32) -> bool {
-        if interrupt == UART_IRQ as u32 {
-            self.uart.handle_interrupt();
-            return true;
-        } else if interrupt == IPC0_IRQ as u32 || interrupt == IPC1_IRQ as u32 {
+        if interrupt == IPC0_IRQ as u32 || interrupt == IPC1_IRQ as u32 {
             return true;
         } else if interrupt == DMA_ERROR_IRQ as u32 || interrupt == DMA_EVENT_IRQ as u32 {
             self.dma.handle_interrupt();

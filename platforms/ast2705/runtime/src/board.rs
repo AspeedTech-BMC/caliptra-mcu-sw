@@ -641,6 +641,7 @@ pub unsafe fn main() {
     // Flash controller read completions are delivered via deferred calls.
     kernel::deferred_call::DeferredCallClient::register(&ast2705_peripherals.primary_flash_ctrl);
     kernel::deferred_call::DeferredCallClient::register(&ast2705_peripherals.secondary_flash_ctrl);
+    kernel::deferred_call::DeferredCallClient::register(&ast2705_peripherals.uart);
 
     // Create muxes for the two physical flash controllers; shared by the
     // boot-device backends here and the flash partitions created below.
