@@ -3633,6 +3633,47 @@ impl DramCtrl {
         self.reg.refctl.modify(aspeed_dramc::REFCTL::REF_DIS.val(0));
     }
 
+    /// Runs the DRAMC built-in self-test (read/write CRC pattern check) over
+    /// the first 64KiB and reports pass/fail via `BISTRES`.
+    fn run_bist(&self) -> Result<(), &'static str> {
+        caliptra_mcu_romtime::println!("[mcu-runtime] DRAM init done, start BIST...");
+
+        self.reg.bistcfg.set(0);
+        self.reg.bist_addr.set(0);
+        self.reg.bist_size.set(0x10000);
+        self.reg.bist_patt.set(0x89ab_cdef);
+        self.reg.bistcfg.write(
+            aspeed_dramc::BISTCFG::START.val(1)
+                + aspeed_dramc::BISTCFG::ENABLE.val(1)
+                + aspeed_dramc::BISTCFG::BMODE.val(3) // RW_SWITCH
+                + aspeed_dramc::BISTCFG::PMODE.val(3), // BIST_PMODE_CRC
+        );
+
+        while !self.reg.intr_status.is_set(aspeed_dramc::INTR::BIST_DONE) {}
+        self.reg
+            .intr_clear
+            .write(aspeed_dramc::INTR::BIST_DONE.val(1));
+
+        let done = self.reg.bist_res.is_set(aspeed_dramc::BISTRES::DONE);
+        let fail = self.reg.bist_res.is_set(aspeed_dramc::BISTRES::FAIL);
+
+        if !done || fail {
+            caliptra_mcu_romtime::println!(
+                "BIST result : Failure (res = 0x{:08x}, done={}, fail={})",
+                self.reg.bist_res.get(),
+                done,
+                fail
+            );
+            return Err("BIST failed");
+        }
+
+        caliptra_mcu_romtime::println!(
+            "BIST result : Success (res = 0x{:08x})",
+            self.reg.bist_res.get()
+        );
+        Ok(())
+    }
+
     /// VRAM address-offset bits (cursor, 2D) for `gfmN_ctl`, per node
     /// (`ast_vga_get_gfm_ctrl`).
     fn vga_gfm_ctrl(node: u8) -> u32 {
@@ -3738,7 +3779,9 @@ impl DramCtrl {
 
         // DRAM PHY init done, self-refresh
         self.dram_self_refresh();
-        self.set_dram_init_done();
+        if self.run_bist().is_ok() {
+            self.set_dram_init_done();
+        }
     }
 
     fn ddr5_imem_phy_load_done(&self, img_id: u32, addr: u64, size: u32) {
@@ -3762,7 +3805,9 @@ impl DramCtrl {
 
         // DRAM PHY init done, self-refresh
         self.dram_self_refresh();
-        self.set_dram_init_done();
+        if self.run_bist().is_ok() {
+            self.set_dram_init_done();
+        }
     }
 
     /// Called from board.rs after set_bootdev(). Kicks off the DRAM init chain.
