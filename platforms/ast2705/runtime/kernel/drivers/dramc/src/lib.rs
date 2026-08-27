@@ -9,6 +9,7 @@ use kernel::utilities::registers::interfaces::{ReadWriteable, Readable, Writeabl
 use kernel::utilities::StaticRef;
 use kernel::ErrorCode;
 use registers_peripherals::aspeed_dramc;
+use registers_peripherals::aspeed_soc::{LsuMbusMap, SoCRegisters};
 use registers_peripherals::ast2705::aspeed_scu0::{SCU0Registers, VgaScratch};
 
 const EXEC_TRAINING_FW: &[(usize, u16)] = &[
@@ -3075,6 +3076,48 @@ const AC_TABLE: &[AcTiming] = &[
     },
 ];
 
+/// One row of `CAPACITY_PROBES` — see `DramCtrl::detect_capacity`.
+#[derive(Clone, Copy)]
+struct CapacityProbe {
+    /// `MCFG::SIZE` index this probe represents.
+    size_sel: usize,
+    /// Address written/read to test whether DRAM is at least this size.
+    test_addr: usize,
+    /// `LSU_MBUS_MAP` MSB byte that routes `test_addr` to this size's
+    /// physical offset.
+    addr_map: u8,
+    /// Unique test pattern for this probe (each is the previous one shifted
+    /// right by 4, so successive probes never alias on a stale value).
+    pattern: u32,
+    /// `ACTIME5::TRFC` value for this size, indexed by `DramType as usize`
+    /// (`[DDR4, DDR5]`).
+    rfc: [u16; 2],
+}
+
+const CAPACITY_PROBES: [CapacityProbe; 3] = [
+    CapacityProbe {
+        size_sel: 3,
+        test_addr: 0xD000_0000,
+        addr_map: 0x44,
+        pattern: 0xDEAD_BEEF,
+        rfc: [472, 880],
+    }, // 2GB
+    CapacityProbe {
+        size_sel: 4,
+        test_addr: 0xE000_0000,
+        addr_map: 0x48,
+        pattern: 0x0DEA_DBEE,
+        rfc: [656, 880],
+    }, // 4GB
+    CapacityProbe {
+        size_sel: 5,
+        test_addr: 0xF000_0000,
+        addr_map: 0x50,
+        pattern: 0x00DE_ADBE,
+        rfc: [880, 880],
+    }, // 8GB
+];
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum DramType {
     Ddr4,
@@ -3323,6 +3366,7 @@ impl DwcDdrPhy {
 // Replace struct definition:
 pub struct DramCtrl {
     reg: StaticRef<aspeed_dramc::SdramcRegisters>,
+    soc: StaticRef<SoCRegisters>,
     scu0: StaticRef<SCU0Registers>,
     ddrphy: DwcDdrPhy,
     bootdev: OptionalCell<&'static dyn KernelImageLoader>,
@@ -3333,11 +3377,13 @@ pub struct DramCtrl {
 impl DramCtrl {
     pub fn new(
         base: StaticRef<aspeed_dramc::SdramcRegisters>,
+        soc: StaticRef<SoCRegisters>,
         scu0: StaticRef<SCU0Registers>,
         ddr_phy_base: u32,
     ) -> Self {
         Self {
             reg: base,
+            soc,
             scu0,
             ddrphy: DwcDdrPhy::new(ddr_phy_base as usize, DramType::Ddr5),
             bootdev: OptionalCell::empty(),
@@ -3636,8 +3682,6 @@ impl DramCtrl {
     /// Runs the DRAMC built-in self-test (read/write CRC pattern check) over
     /// the first 64KiB and reports pass/fail via `BISTRES`.
     fn run_bist(&self) -> Result<(), &'static str> {
-        caliptra_mcu_romtime::println!("[mcu-runtime] DRAM init done, start BIST...");
-
         self.reg.bistcfg.set(0);
         self.reg.bist_addr.set(0);
         self.reg.bist_size.set(0x10000);
@@ -3654,24 +3698,92 @@ impl DramCtrl {
             .intr_clear
             .write(aspeed_dramc::INTR::BIST_DONE.val(1));
 
-        let done = self.reg.bist_res.is_set(aspeed_dramc::BISTRES::DONE);
-        let fail = self.reg.bist_res.is_set(aspeed_dramc::BISTRES::FAIL);
+        let res = self.reg.bist_res.extract();
+        let done = res.is_set(aspeed_dramc::BISTRES::DONE);
+        let fail = res.is_set(aspeed_dramc::BISTRES::FAIL);
+        let result = done && !fail;
+        match result {
+            true => {
+                caliptra_mcu_romtime::println!("[mcu-runtime] BIST result: Success");
+                return Ok(());
+            }
+            false => {
+                caliptra_mcu_romtime::println!("[mcu-runtime] BIST result: Failure");
+                caliptra_mcu_romtime::println!(
+                    "[mcu-runtime] res = 0x{:08x}, done={}, fail={})",
+                    res.get(),
+                    done,
+                    fail
+                );
+                return Err("BIST failed");
+            }
+        };
+    }
 
-        if !done || fail {
-            caliptra_mcu_romtime::println!(
-                "BIST result : Failure (res = 0x{:08x}, done={}, fail={})",
-                self.reg.bist_res.get(),
-                done,
-                fail
-            );
-            return Err("BIST failed");
+    /// Probes actual DRAM capacity by remapping the CPU's 0xC0-0xFF window
+    /// via `LSU_MBUS_MAP` to 2G/4G/8G candidate offsets and writing a
+    /// pattern at each in turn. A probe that aliases back to the base
+    /// (0xC000_0000) window means DRAM isn't that big; the last probe that
+    /// *didn't* alias gives the detected size (2GB, the smallest probed
+    /// size, if even that one aliases). Then reprograms
+    /// `MCFG::SIZE`/`ACTIME5::TRFC` accordingly. See `CAPACITY_PROBES`:
+    ///
+    /// | Size (size_sel) | Test addr   | Addr map (MSB) | Pattern     | RFC (DDR4/DDR5) |
+    /// |------------|-------------|-----------------|-------------|------------------|
+    /// | 2GB (3)    | 0xD000_0000 | 0x44            | 0xDEAD_BEEF | 472 / 880        |
+    /// | 4GB (4)    | 0xE000_0000 | 0x48            | 0x0DEA_DBEE | 656 / 880        |
+    /// | 8GB (5)    | 0xF000_0000 | 0x50            | 0x00DE_ADBE | 880 / 880        |
+    fn detect_capacity(&self) {
+        const CHECK_ADDR: usize = 0xC000_0000; // 0xC000_0000 -> wrap check address
+
+        let lsu_mbus_map = self.soc.lsu_mbus_map.get();
+
+        self.soc.lsu_mbus_map.write(
+            LsuMbusMap::MsbLsuMbusMap0.val(0x40)
+                + LsuMbusMap::MsbLsuMbusMap1.val(CAPACITY_PROBES[0].addr_map as u32)
+                + LsuMbusMap::MsbLsuMbusMap2.val(CAPACITY_PROBES[1].addr_map as u32)
+                + LsuMbusMap::MsbLsuMbusMap3.val(CAPACITY_PROBES[2].addr_map as u32),
+        );
+
+        // Defaults to the smallest (2GB) probe; stays there if it wraps.
+        let mut detected = &CAPACITY_PROBES[0];
+        for probe in &CAPACITY_PROBES {
+            let val = unsafe {
+                core::ptr::write_volatile(probe.test_addr as *mut u32, probe.pattern);
+                caliptra_mcu_romtime::udelay(10);
+                core::ptr::read_volatile(CHECK_ADDR as *const u32)
+            };
+
+            if val != probe.pattern {
+                detected = probe;
+            } else {
+                // Wrapped: DRAM isn't this big. Stop and keep the last
+                // confirmed (smaller) size.
+                break;
+            }
         }
 
+        // Restore the original mapping.
+        self.soc.lsu_mbus_map.set(lsu_mbus_map);
+
+        // Re-configure ram size to dramc.
+        self.reg
+            .mcfg
+            .modify(aspeed_dramc::MCFG::SIZE.val(detected.size_sel as u32));
+
+        // Update rfc in ac_timing5 register.
+        let dram = self.detect_dram_type();
+        let rfc = detected.rfc[dram as usize] as u32;
+        self.reg
+            .actime5
+            .modify(aspeed_dramc::ACTIME5::TRFC.val(rfc >> 1));
+
         caliptra_mcu_romtime::println!(
-            "BIST result : Success (res = 0x{:08x})",
-            self.reg.bist_res.get()
+            "[mcu-runtime] DRAM size {}GB, rfc: {}, actime5: 0x{:08x}",
+            1 << (detected.size_sel - 2),
+            rfc,
+            self.reg.actime5.get()
         );
-        Ok(())
     }
 
     /// VRAM address-offset bits (cursor, 2D) for `gfmN_ctl`, per node
@@ -3780,6 +3892,7 @@ impl DramCtrl {
         // DRAM PHY init done, self-refresh
         self.dram_self_refresh();
         if self.run_bist().is_ok() {
+            self.detect_capacity();
             self.set_dram_init_done();
         }
     }
@@ -3806,6 +3919,7 @@ impl DramCtrl {
         // DRAM PHY init done, self-refresh
         self.dram_self_refresh();
         if self.run_bist().is_ok() {
+            self.detect_capacity();
             self.set_dram_init_done();
         }
     }

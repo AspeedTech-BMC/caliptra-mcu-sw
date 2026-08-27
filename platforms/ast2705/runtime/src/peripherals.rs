@@ -90,6 +90,7 @@ impl<'a> Ast2705Peripherals<'a> {
             uart: Ast2705Uart16550::new(ASPEED_UART_BASE),
             dramc: caliptra_mcu_dramc_ast2705::DramCtrl::new(
                 ASPEED_SDRAMC_BASE,
+                ASPEED_SOC_BASE,
                 ASPEED_SCU0_BASE,
                 peri::ASPEED_DRAM_PHY_ADDR,
             ),
