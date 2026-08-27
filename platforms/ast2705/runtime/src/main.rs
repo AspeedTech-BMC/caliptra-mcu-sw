@@ -40,7 +40,7 @@ pub static MCU_MEMORY_MAP: McuMemoryMap = caliptra_mcu_config_ast2705::AST2705_M
 // for a reasonable processor and does not have to be exact.
 #[no_mangle]
 #[used]
-pub static TIMER_FREQUENCY_HZ: u32 = 1_000_000;
+pub static TIMER_FREQUENCY_HZ: u32 = 333_000_000; // 333 MHz
 
 #[cfg(target_arch = "riscv32")]
 #[no_mangle]

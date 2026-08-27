@@ -369,6 +369,8 @@ pub unsafe fn main() {
     // only machine mode
     rv32i::configure_trap_handler();
 
+    caliptra_mcu_romtime::set_timer_frequency_hz(crate::TIMER_FREQUENCY_HZ);
+
     // TODO: remove this when the emulator-specific pieces are moved to
     // platform/emulator/runtime
     #[allow(static_mut_refs)]

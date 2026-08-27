@@ -203,3 +203,38 @@ pub fn mcycle() -> u64 {
     > = riscv_csr::csr::ReadWriteRiscvCsr::new();
     ((mcycleh.get() as u64) << 32) | (mcycle.get() as u64)
 }
+
+static mut TIMER_FREQUENCY_HZ: u32 = 0;
+
+/// Must be called once, early in `main()`, before any `udelay`/`mdelay` call.
+pub fn set_timer_frequency_hz(hz: u32) {
+    unsafe { TIMER_FREQUENCY_HZ = hz };
+}
+
+/// Busy-waits for at least `us` microseconds, spinning on `mcycle()`.
+pub fn udelay(us: u32) {
+    let freq = unsafe { TIMER_FREQUENCY_HZ };
+    let start = mcycle();
+    let ticks = (freq as u64 * us as u64) / 1_000_000;
+
+    if freq == 0 {
+        crate::println!("[mcu-delay] Frequency not configured; delay skipped");
+        return;
+    }
+
+    while mcycle().wrapping_sub(start) < ticks {}
+}
+
+/// Busy-waits for at least `ms` milliseconds. spinning on `mcycle()`.
+pub fn mdelay(ms: u32) {
+    let freq = unsafe { TIMER_FREQUENCY_HZ };
+    let start = mcycle();
+    let ticks = (freq as u64 * ms as u64) / 1_000;
+
+    if freq == 0 {
+        crate::println!("[mcu-delay] Frequency not configured; delay skipped");
+        return;
+    }
+
+    while mcycle().wrapping_sub(start) < ticks {}
+}
