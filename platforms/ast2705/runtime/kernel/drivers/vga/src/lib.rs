@@ -5,6 +5,8 @@
 
 #![no_std]
 
+use core::cell::Cell;
+
 use caliptra_mcu_capsules_runtime::bootdev::hil::{KernelImageClient, KernelImageLoader};
 use kernel::utilities::cells::OptionalCell;
 use kernel::utilities::registers::interfaces::{ReadWriteable, Readable, Writeable};
@@ -41,6 +43,8 @@ pub struct AspeedVgaCtrl {
     e2m1: StaticRef<E2m1Registers>,
     loader: OptionalCell<&'static dyn KernelImageLoader>,
     self_ref: OptionalCell<&'static dyn KernelImageClient>,
+    nodes: Cell<[bool; 2]>,
+    is_64vram: Cell<bool>,
 }
 
 impl AspeedVgaCtrl {
@@ -57,6 +61,8 @@ impl AspeedVgaCtrl {
             e2m1,
             loader: OptionalCell::empty(),
             self_ref: OptionalCell::empty(),
+            nodes: Cell::new([false, false]),
+            is_64vram: Cell::new(false),
         }
     }
 
@@ -68,6 +74,10 @@ impl AspeedVgaCtrl {
 
     /// Programs the VGA framebuffer aperture for each enabled node
     /// (`_ast_update_e2m`).
+    ///
+    /// Reads `gm_base`, which DRAM training fills in; `init()` runs before
+    /// training has necessarily finished, so this is deferred to
+    /// `image_ready`, once training is known to be done.
     fn update_e2m_vga_ram(&self, nodes: [bool; 2], is_64vram: bool) {
         let vram_size_cfg: u32 = if is_64vram { 0xf } else { 0xe };
 
@@ -184,7 +194,8 @@ impl AspeedVgaCtrl {
 
         caliptra_mcu_romtime::println!("[vga] enable 0({}) 1({})", nodes[0] as u8, nodes[1] as u8);
 
-        self.update_e2m_vga_ram(nodes, is_64vram);
+        self.nodes.set(nodes);
+        self.is_64vram.set(is_64vram);
 
         // scratch for VGA CRAA[1:0]: 10b = 32MB, 11b = 64MB
         self.scu0.hwstrap1.modify(HwStrap1::VramSizeHi::SET);
@@ -235,6 +246,9 @@ impl KernelImageClient for AspeedVgaCtrl {
         if image_id != VGA_FW {
             return;
         }
+
+        // DRAM training must have completed by now, so gm_base is valid.
+        self.update_e2m_vga_ram(self.nodes.get(), self.is_64vram.get());
 
         // A single VGA_FW image is requested for both nodes; copy it into
         // both nodes' reserved regions. DRAM is safe to touch here: this
