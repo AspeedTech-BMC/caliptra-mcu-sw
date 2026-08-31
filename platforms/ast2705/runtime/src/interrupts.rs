@@ -1,0 +1,85 @@
+// Licensed under the Apache-2.0 license
+
+use crate::io::Ast2705Uart16550;
+use caliptra_mcu_tock_veer::timers::InternalTimers;
+use capsules_core::virtualizers::virtual_alarm::MuxAlarm;
+use kernel::platform::chip::InterruptService;
+
+pub const UART_IRQ: u8 = 0x10;
+pub const MAIN_FLASH_CTRL_ERROR_IRQ: u8 = 0x13;
+pub const MAIN_FLASH_CTRL_EVENT_IRQ: u8 = 0x14;
+pub const RECOVERY_FLASH_CTRL_EVENT_IRQ: u8 = 0x15;
+pub const RECOVERY_FLASH_CTRL_ERROR_IRQ: u8 = 0x16;
+pub const DMA_EVENT_IRQ: u8 = 0x17;
+pub const DMA_ERROR_IRQ: u8 = 0x18;
+#[cfg(any(feature = "doe", feature = "test-doe-transport-loopback"))]
+pub const DOE_MBOX_EVENT_IRQ: u8 = 0x19;
+
+pub struct Ast2705Peripherals<'a> {
+    pub uart: Ast2705Uart16550<'a>,
+    pub primary_flash_ctrl: caliptra_mcu_flash_ctrl_emulator::EmulatedFlashCtrl<'a>,
+    pub secondary_flash_ctrl: caliptra_mcu_flash_ctrl_emulator::EmulatedFlashCtrl<'a>,
+    pub dma: caliptra_mcu_dma_driver::axicdma::AxiCDMA<'a, InternalTimers<'a>>,
+    #[cfg(any(feature = "doe", feature = "test-doe-transport-loopback"))]
+    pub doe_transport: caliptra_mcu_doe_mbox_driver::EmulatedDoeTransport<'a, InternalTimers<'a>>,
+}
+
+impl<'a> Ast2705Peripherals<'a> {
+    pub fn new(alarm: &'a MuxAlarm<'a, InternalTimers<'a>>) -> Self {
+        Self {
+            uart: Ast2705Uart16550::new(),
+            primary_flash_ctrl: caliptra_mcu_flash_ctrl_emulator::EmulatedFlashCtrl::new(
+                caliptra_mcu_flash_ctrl_emulator::PRIMARY_FLASH_CTRL_BASE,
+            ),
+            secondary_flash_ctrl: caliptra_mcu_flash_ctrl_emulator::EmulatedFlashCtrl::new(
+                caliptra_mcu_flash_ctrl_emulator::SECONDARY_FLASH_CTRL_BASE,
+            ),
+            dma: caliptra_mcu_dma_driver::axicdma::AxiCDMA::new(
+                caliptra_mcu_dma_driver::axicdma::DMA_CTRL_BASE,
+                false,
+                Some(alarm),
+            ),
+            #[cfg(any(feature = "doe", feature = "test-doe-transport-loopback"))]
+            doe_transport: caliptra_mcu_doe_mbox_driver::EmulatedDoeTransport::new(
+                caliptra_mcu_doe_mbox_driver::DOE_MBOX_BASE,
+                alarm,
+            ),
+        }
+    }
+
+    pub fn init(&'static self) {
+        self.primary_flash_ctrl.init();
+        self.secondary_flash_ctrl.init();
+        self.dma.init();
+        #[cfg(any(feature = "doe", feature = "test-doe-transport-loopback"))]
+        self.doe_transport.init();
+    }
+}
+
+impl<'a> InterruptService for Ast2705Peripherals<'a> {
+    unsafe fn service_interrupt(&self, interrupt: u32) -> bool {
+        if interrupt == UART_IRQ as u32 {
+            self.uart.handle_interrupt();
+            return true;
+        } else if interrupt == MAIN_FLASH_CTRL_ERROR_IRQ as u32
+            || interrupt == MAIN_FLASH_CTRL_EVENT_IRQ as u32
+        {
+            self.primary_flash_ctrl.handle_interrupt();
+            return true;
+        } else if interrupt == RECOVERY_FLASH_CTRL_ERROR_IRQ as u32
+            || interrupt == RECOVERY_FLASH_CTRL_EVENT_IRQ as u32
+        {
+            self.secondary_flash_ctrl.handle_interrupt();
+            return true;
+        } else if interrupt == DMA_ERROR_IRQ as u32 || interrupt == DMA_EVENT_IRQ as u32 {
+            self.dma.handle_interrupt();
+            return true;
+        }
+        #[cfg(any(feature = "doe", feature = "test-doe-transport-loopback"))]
+        if interrupt == DOE_MBOX_EVENT_IRQ as u32 {
+            self.doe_transport.handle_interrupt();
+            return true;
+        }
+        false
+    }
+}
