@@ -23,6 +23,8 @@ const FPGA_USER_APP_MANIFEST: &str = "firmware-bundler/reference/fpga/user-app.t
 const FPGA_EXAMPLE_APP_MANIFEST: &str = "firmware-bundler/reference/fpga/example-app.toml";
 const EMU_BARE_METAL_MANIFEST: &str = "firmware-bundler/reference/emulator/bare-metal.toml";
 const FPGA_BARE_METAL_MANIFEST: &str = "firmware-bundler/reference/fpga/bare-metal.toml";
+const AST2705_EXAMPLE_APP_MANIFEST: &str = "firmware-bundler/reference/ast2705/example-app.toml";
+const AST2705_USER_APP_MANIFEST: &str = "firmware-bundler/reference/ast2705/user-app.toml";
 
 pub fn manifest_file(platform: Option<&str>, example_app: bool) -> Result<PathBuf> {
     manifest_file_for_profile(platform, example_app, None)
@@ -55,7 +57,16 @@ pub fn manifest_file_for_profile(
                 FPGA_USER_APP_MANIFEST
             }
         }
-        _ => bail!("Invalid platform {platform:?}, supported options are 'emulator' or 'fpga'"),
+        Some("ast2705") => {
+            if example_app {
+                AST2705_EXAMPLE_APP_MANIFEST
+            } else {
+                AST2705_USER_APP_MANIFEST
+            }
+        }
+        _ => bail!(
+            "Invalid platform {platform:?}, supported options are 'emulator', 'fpga' or 'ast2705'"
+        ),
     };
 
     find_workspace_directory().map(|w| w.join(manifest))

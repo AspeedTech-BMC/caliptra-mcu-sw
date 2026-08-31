@@ -1,0 +1,12 @@
+[package]
+name = "registers-peripherals"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[dependencies]
+tock-registers.workspace = true
+
+[features]
+default = []
+ast2705-register = []

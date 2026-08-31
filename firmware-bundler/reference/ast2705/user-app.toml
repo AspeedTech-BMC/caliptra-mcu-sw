@@ -1,0 +1,35 @@
+# Licensed under the Apache-2.0 license
+
+[platform]
+name = "ast2705-user-app"
+tuple = "riscv32imc-unknown-none-elf"
+dynamic_sizing = true
+page_size = 256
+
+[platform.rom]
+offset = 0x4000_0000
+size = 0x1_0000
+
+[platform.runtime_memory]
+sram = { offset = 0x21c0_0000, size = 0x8_0000 }
+
+[platform.dccm]
+offset = 0x5000_0000
+size = 0x4000
+
+[platform.flash]
+offset = 0x3BFE_0000
+size = 0x2_0000
+
+[kernel]
+name = "mcu-runtime-ast2705"
+#exec_mem = { "size" = 0x2_d000 }
+#data_mem = { "size" = 0x0_9000 }
+stack = 0x0_7000
+
+[[app]]
+name = "ast2705-user-app"
+#exec_mem = { "size" = 0x3_2000 }
+#data_mem = { "size" = 0x1_8000 }
+stack = 0xe000
+grant_space = 0x4000

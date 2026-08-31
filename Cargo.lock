@@ -1145,6 +1145,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "caliptra-mcu-config-ast2705"
+version = "0.1.0"
+dependencies = [
+ "caliptra-mcu-config",
+ "zerocopy",
+]
+
+[[package]]
 name = "caliptra-mcu-config-emulator"
 version = "0.1.0"
 dependencies = [
@@ -5448,6 +5456,42 @@ dependencies = [
 ]
 
 [[package]]
+name = "mcu-runtime-ast2705"
+version = "0.1.0"
+dependencies = [
+ "arrayvec",
+ "caliptra-mcu-capsules-emulator",
+ "caliptra-mcu-capsules-runtime",
+ "caliptra-mcu-components",
+ "caliptra-mcu-config",
+ "caliptra-mcu-config-ast2705",
+ "caliptra-mcu-dma-driver",
+ "caliptra-mcu-doe-mbox-driver",
+ "caliptra-mcu-doe-transport",
+ "caliptra-mcu-external-otp-driver",
+ "caliptra-mcu-external-otp-emulator",
+ "caliptra-mcu-flash-ctrl-emulator",
+ "caliptra-mcu-flash-driver",
+ "caliptra-mcu-i3c-driver",
+ "caliptra-mcu-mbox-comm",
+ "caliptra-mcu-mbox-driver",
+ "caliptra-mcu-platforms-common",
+ "caliptra-mcu-registers-generated",
+ "caliptra-mcu-romtime",
+ "caliptra-mcu-tock-veer",
+ "capsules-core",
+ "capsules-extra",
+ "capsules-system",
+ "components",
+ "kernel",
+ "registers-peripherals",
+ "riscv 0.2.2",
+ "riscv-csr",
+ "rv32i",
+ "tock-registers",
+]
+
+[[package]]
 name = "md5"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6412,6 +6456,13 @@ name = "regex-syntax"
 version = "0.8.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a2d987857b319362043e95f5353c0535c1f58eec5336fdfcf626430af7def58"
+
+[[package]]
+name = "registers-peripherals"
+version = "0.1.0"
+dependencies = [
+ "tock-registers",
+]
 
 [[package]]
 name = "reqwest"

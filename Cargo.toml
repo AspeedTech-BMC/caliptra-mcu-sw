@@ -125,6 +125,10 @@ members = [
     "tools/fw-signer",
     "tools/pk-hash-checker",
     "xtask",
+    # Aspeed specific members
+    "platforms/ast2705/config",
+    "platforms/ast2705/runtime",
+    "registers/generated-peripherals",
 ]
 resolver = "2"
 
@@ -453,7 +457,9 @@ tock-registers = { git = "https://github.com/tock/tock.git", rev = "release-2.2"
 # rv32i = { path = "../tock/arch/rv32i" }
 # tock-registers = { path = "../tock/libraries/tock-register-interface" }
 
-
+# local aspeed dependencies
+caliptra-mcu-config-ast2705 = { path = "platforms/ast2705/config" }
+registers-peripherals = { path = "registers/generated-peripherals" }
 
 # Always optimize the emulator during tests, as it is a major bottleneck for
 # test speed.
