@@ -1,6 +1,6 @@
 // Licensed under the Apache-2.0 license
 
-use crate::interrupts::Ast2705Peripherals;
+use crate::peripherals::Ast2705Peripherals;
 use crate::MCU_MEMORY_MAP;
 use arrayvec::ArrayVec;
 #[cfg(feature = "doe")]
