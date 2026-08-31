@@ -73,7 +73,7 @@ impl ImageFlash for AspeedIpcCtrl {
             }
 
             let chunk_size = header.chunk_size;
-            caliptra_mcu_romtime::println!("[mcu-runtime-ipc] chunk_size: {:?}", chunk_size);
+            // caliptra_mcu_romtime::println!("[mcu-runtime-ipc] chunk_size: {:?}", chunk_size);
             if chunk_size == 0
                 || copied
                     .checked_add(chunk_size)
@@ -91,7 +91,7 @@ impl ImageFlash for AspeedIpcCtrl {
             )
             .map_err(|_| ErrorCode::FAIL)?;
 
-            caliptra_mcu_romtime::println!("[mcu-runtime-ipc] ChunkAck");
+            // caliptra_mcu_romtime::println!("[mcu-runtime-ipc] ChunkAck");
             copied += chunk_size;
 
             let ack = ChunkAck {
