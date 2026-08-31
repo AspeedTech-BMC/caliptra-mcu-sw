@@ -222,6 +222,61 @@ dependencies = [
 ]
 
 [[package]]
+name = "ast2705-user-app"
+version = "0.1.0"
+dependencies = [
+ "arrayvec",
+ "async-trait",
+ "caliptra-api",
+ "caliptra-image-types",
+ "caliptra-mcu-attestation-evidence",
+ "caliptra-mcu-common-commands",
+ "caliptra-mcu-config",
+ "caliptra-mcu-config-ast2705",
+ "caliptra-mcu-flash-image",
+ "caliptra-mcu-libapi-ast2705-caliptra",
+ "caliptra-mcu-libapi-caliptra",
+ "caliptra-mcu-libsyscall-caliptra",
+ "caliptra-mcu-libtock",
+ "caliptra-mcu-libtock_console",
+ "caliptra-mcu-libtock_low_level_debug",
+ "caliptra-mcu-libtock_platform",
+ "caliptra-mcu-libtock_runtime",
+ "caliptra-mcu-libtock_unittest",
+ "caliptra-mcu-libtockasync",
+ "caliptra-mcu-mbox-common",
+ "caliptra-mcu-mbox-lib",
+ "caliptra-mcu-mctp-vdm-common",
+ "caliptra-mcu-mctp-vdm-lib",
+ "caliptra-mcu-measurement-api",
+ "caliptra-mcu-pldm-common",
+ "caliptra-mcu-pldm-lib",
+ "caliptra-mcu-registers-generated",
+ "caliptra-mcu-romtime",
+ "caliptra-mcu-runtime-userspace-error",
+ "caliptra-mcu-scratch-alloc",
+ "caliptra-mcu-spdm-codec",
+ "caliptra-mcu-spdm-pal",
+ "caliptra-mcu-spdm-stack",
+ "caliptra-mcu-spdm-traits",
+ "caliptra-mcu-spdm-transports",
+ "caliptra-mcu-spdm-vdm-handler",
+ "caliptra-mcu-userlog",
+ "constant_time_eq 0.4.2",
+ "critical-section",
+ "defmt",
+ "embassy-executor",
+ "embassy-sync",
+ "embedded-alloc",
+ "mcu-caliptra-api",
+ "portable-atomic",
+ "serde",
+ "static_cell",
+ "toml 0.8.23",
+ "zerocopy",
+]
+
+[[package]]
 name = "async-trait"
 version = "0.1.89"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1662,6 +1717,21 @@ dependencies = [
 name = "caliptra-mcu-image-header"
 version = "0.1.0"
 dependencies = [
+ "zerocopy",
+]
+
+[[package]]
+name = "caliptra-mcu-libapi-ast2705-caliptra"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "caliptra-mcu-config",
+ "caliptra-mcu-config-ast2705",
+ "caliptra-mcu-libapi-caliptra",
+ "caliptra-mcu-libsyscall-caliptra",
+ "caliptra-mcu-libtock_platform",
+ "embassy-executor",
+ "embedded-alloc",
  "zerocopy",
 ]
 
