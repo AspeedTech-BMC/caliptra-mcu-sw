@@ -84,7 +84,6 @@ dot-spdm-vdm = []
 release = [
 	"userspace-log",
 	"kernel/no_debug_panics",
-	"caliptra-mcu-romtime/no-print",
 ]
 hw-2-1 = []
 ocp-lock = [

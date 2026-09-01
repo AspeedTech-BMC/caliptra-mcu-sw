@@ -368,8 +368,8 @@ pub unsafe fn main() {
 
     // TODO: remove this when the emulator-specific pieces are moved to
     // platform/emulator/runtime
-    // #[allow(static_mut_refs)]
-    // caliptra_mcu_romtime::set_printer(&mut EMULATOR_WRITER);
+    #[allow(static_mut_refs)]
+    caliptra_mcu_romtime::set_printer(&mut crate::io::RUNTIME_WRITER);
     // #[allow(static_mut_refs)]
     // caliptra_mcu_romtime::set_exiter(&mut EMULATOR_EXITER);
     // Read handoff table BEFORE PMP setup.

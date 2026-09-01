@@ -28,7 +28,7 @@ use kernel::ErrorCode;
 use registers_peripherals::uart16550::{Uart16550Registers, IER, IIR, LCR, LSR, THR};
 use tock_registers::interfaces::{ReadWriteable, Readable, Writeable};
 
-pub(crate) static mut WRITER: Writer = Writer {};
+pub(crate) static mut RUNTIME_WRITER: Writer = Writer {};
 
 /// Panic handler.
 ///
@@ -38,7 +38,7 @@ pub(crate) static mut WRITER: Writer = Writer {};
 #[no_mangle]
 #[panic_handler]
 pub unsafe fn panic_fmt(pi: &PanicInfo) -> ! {
-    let writer = &mut *addr_of_mut!(WRITER);
+    let writer = &mut *addr_of_mut!(RUNTIME_WRITER);
     debug::panic_print(
         writer,
         pi,
@@ -59,7 +59,7 @@ pub unsafe fn panic_fmt(pi: &PanicInfo) -> ! {
 #[panic_handler]
 pub unsafe fn panic_fmt(pi: &PanicInfo) -> ! {
     use core::fmt::Write as _;
-    let writer = &mut *addr_of_mut!(WRITER);
+    let writer = &mut *addr_of_mut!(RUNTIME_WRITER);
     let _ = writer.write_str("PANIC");
     if let Some(loc) = pi.location() {
         let _ = write!(writer, " at {}:{}", loc.file(), loc.line());
@@ -69,12 +69,8 @@ pub unsafe fn panic_fmt(pi: &PanicInfo) -> ! {
 }
 
 /// Exit the ast2705
-pub fn exit_ast2705(exit_code: u32) -> ! {
-    // Safety: This is a safe memory address to write to for exiting the ast2705.
-    unsafe {
-        // By writing to this address we can exit the ast2705.
-        write_volatile(0x1000_2000 as *mut u32, exit_code);
-    }
+pub fn exit_ast2705(_exit_code: u32) -> ! {
+    loop {}
     unreachable!()
 }
 
@@ -89,18 +85,25 @@ impl Write for Writer {
 
 impl IoWrite for Writer {
     fn write(&mut self, buf: &[u8]) -> usize {
-        for b in buf {
-            // Print to this address for emulator output
-            unsafe {
-                write_volatile(0x1000_1041 as *mut u8, *b);
-            }
+        let uart = Ast2705Uart16550::new(crate::peripherals::ASPEED_UART_BASE);
+        let last_char_idx = buf.len().saturating_sub(1);
+
+        if buf.is_empty() {
+            return 0;
         }
+
+        uart.transmit_sync(&buf[..last_char_idx]);
+        if buf[last_char_idx] == b'\n' {
+            uart.transmit_sync(b"\r");
+        }
+        uart.transmit_sync(&buf[last_char_idx..]);
+
         buf.len()
     }
 }
 
 fn read_byte() -> u8 {
-    unsafe { read_volatile(0x1000_1041 as *mut u8) }
+    0
 }
 
 pub struct Ast2705Uart16550<'a> {
