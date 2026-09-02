@@ -3,6 +3,7 @@
 use crate::peripherals::Ast2705Peripherals;
 use crate::MCU_MEMORY_MAP;
 use arrayvec::ArrayVec;
+use caliptra_mcu_capsules_runtime::bootdev::hil::ImageFlash;
 #[cfg(feature = "doe")]
 use caliptra_mcu_capsules_runtime::doe::driver::DoeDriver;
 #[cfg(any(
@@ -21,6 +22,7 @@ use caliptra_mcu_capsules_runtime::flash_partition::FlashPartition;
 use caliptra_mcu_capsules_runtime::mctp::base_protocol::MessageType;
 #[cfg(feature = "mcu-mbox-service")]
 use caliptra_mcu_capsules_runtime::mcu_mbox::McuMboxDriver;
+use caliptra_mcu_components::bootdev_component_static;
 #[cfg(feature = "doe")]
 use caliptra_mcu_components::doe_component_static;
 #[cfg(feature = "userspace-log")]
@@ -223,6 +225,7 @@ struct VeeR {
     pcr_store: &'static caliptra_mcu_capsules_runtime::soft_pcr_store::SoftPcrStore,
     #[cfg(any(feature = "dot-mci-mailbox", feature = "dot-spdm-vdm"))]
     dot_blob_store: &'static FlashPartition<'static>,
+    bootdev: &'static caliptra_mcu_capsules_runtime::bootdev::BootDevCapsule<'static>,
 }
 
 /// Mapping of integer syscalls to objects that implement syscalls.
@@ -307,6 +310,7 @@ impl SyscallDriverLookup for VeeR {
             n if n == caliptra_mcu_config::DOT_BLOB_STORE_DRIVER_NUM as usize => {
                 f(Some(self.dot_blob_store))
             }
+            caliptra_mcu_capsules_runtime::bootdev::DRIVER_NUM => f(Some(self.bootdev)),
             _ => f(None),
         }
     }
@@ -628,6 +632,20 @@ pub unsafe fn main() {
     let ast2705_peripherals = static_init!(Ast2705Peripherals, Ast2705Peripherals::new(mux_alarm),);
     ast2705_peripherals.init();
     AST2705_PERIPHERALS = Some(ast2705_peripherals);
+
+    // Boot device components registered
+    let mut flash_devs = ArrayVec::<&'static dyn ImageFlash, 1>::new();
+    flash_devs.push(&ast2705_peripherals.ipc);
+    let bootdev = caliptra_mcu_components::bootdev::BootDevComponent::new(
+        flash_devs,
+        board_kernel,
+        caliptra_mcu_capsules_runtime::bootdev::DRIVER_NUM,
+    )
+    .finalize(bootdev_component_static!());
+
+    // Periperhals init with boot device
+    _ = ast2705_peripherals.dramc.init(bootdev);
+    _ = ast2705_peripherals.scu0.init(bootdev);
 
     let peripherals = static_init!(
         VeeRDefaultPeripherals,
@@ -1085,6 +1103,7 @@ pub unsafe fn main() {
             pcr_store,
             #[cfg(any(feature = "dot-mci-mailbox", feature = "dot-spdm-vdm"))]
             dot_blob_store,
+            bootdev,
         }
     );
 
