@@ -29,7 +29,7 @@ fn main() {
     unsafe { HEAP.init(HEAP_MEM.as_ptr() as usize, HEAP_SIZE) }
 
     let mut console_writer = Console::writer();
-    crate::log_info!(console_writer, "Hello world! from SPDM main");
+    crate::log_info!(console_writer, "Hello world! from Aspeed Application");
 
     caliptra_mcu_libtockasync::start_async(crate::start());
 }

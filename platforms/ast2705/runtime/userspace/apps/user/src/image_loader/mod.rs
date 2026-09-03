@@ -29,6 +29,7 @@ use caliptra_mcu_config_ast2705::flash::{
 };
 #[allow(unused)]
 use caliptra_mcu_libapi_ast2705_caliptra::image_loading::flash_boot_cfg::FlashBootConfig;
+use caliptra_mcu_libsyscall_caliptra::bootdev::BootDev;
 use caliptra_mcu_libsyscall_caliptra::dma::{AXIAddr, DMAMapping};
 #[allow(unused)]
 use caliptra_mcu_libsyscall_caliptra::flash::SpiFlash;
@@ -72,6 +73,7 @@ use caliptra_mcu_libsyscall_caliptra::DefaultSyscalls;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 #[allow(unused)]
 use embassy_sync::{lazy_lock::LazyLock, signal::Signal};
+use mcu_caliptra_api::image_loader::BootDevImageLoader;
 #[allow(unused)]
 #[cfg(not(any(
     feature = "streaming-boot",
@@ -232,6 +234,49 @@ pub async fn image_loading_task(soc_image_load_list: &'static [u32]) {
         }
         // MBOX SRAM lock will be released after reboot
     }
+
+    match image_loading(
+        &EMULATED_DMA_MAPPING,
+        soc_image_load_list,
+        mcu_fw_hitless_update_reset,
+    )
+    .await
+    {
+        Ok(_) => {}
+        Err(_) => System::exit(1),
+    }
+}
+
+async fn load_prebuilt_images<D: DMAMapping + 'static>(
+    loader: &BootDevImageLoader<D>,
+) -> Result<(), ErrorCode> {
+    loop {
+        // Wait for the next kernel request. image_id == 0 means "all done".
+        let (image_id, _img_size) = loader.wait_image_needed().await?;
+        if image_id == 0 {
+            break;
+        }
+
+        loader.load(image_id).await?;
+    }
+
+    Ok(())
+}
+
+pub mod dram_image_id {
+    pub const CA35_ATF: u32 = 0x1008;
+    pub const CA35_TEE: u32 = 0x1009;
+    pub const CA35_UBOOT: u32 = 0x100A;
+}
+
+async fn load_images<D: DMAMapping + 'static>(
+    loader: &BootDevImageLoader<D>,
+) -> Result<(), ErrorCode> {
+    loader.load(dram_image_id::CA35_ATF).await?;
+    loader.load(dram_image_id::CA35_TEE).await?;
+    loader.load(dram_image_id::CA35_UBOOT).await?;
+
+    Ok(())
 }
 
 #[allow(dead_code)]
@@ -363,6 +408,20 @@ async fn image_loading<D: DMAMapping>(
         }
         pldm_fdops_mock::FdOpsObject::wait_for_pldm_done().await;
     }
+
+    let bootdev_syscall = BootDev::new();
+    let bootdev = BootDevImageLoader::new(bootdev_syscall, dma_mapping);
+
+    bootdev.bootdev_load_ready().await?;
+
+    // Phase 1 — hardware PHY images (kernel-initiated).
+    // Each kernel driver (DRAM, Display, BIOS) that registered a PHY image
+    // request will trigger one iteration of this loop.
+    load_prebuilt_images(&bootdev).await?;
+
+    // Phase 2 — software images (userspace-initiated, caliptra-authorized).
+    load_images(&bootdev).await?;
+
     Ok(())
 }
 
