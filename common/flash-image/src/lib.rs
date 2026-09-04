@@ -42,6 +42,22 @@ impl FlashHeader {
     }
 }
 
+/* 
+ * Revert to legacy format: boards still hold pre-HEADER_VERSION-3 images
+ * without this field (added in beb9a717). Restoring it also needs
+ * HEADER_VERSION back to 3 and the filename plumbing in
+ * builder/src/flash_image.rs re-added.
+ */
+#[repr(C)]
+#[derive(Debug, FromBytes, IntoBytes, Clone, Copy, Immutable, KnownLayout)]
+pub struct ImageHeader {
+    pub identifier: u32,
+    pub offset: u32,
+    pub size: u32,
+    pub image_checksum: u32,
+    pub image_header_checksum: u32,
+}
+/*
 #[repr(C)]
 #[derive(Debug, FromBytes, IntoBytes, Clone, Copy, Immutable, KnownLayout)]
 pub struct ImageHeader {
@@ -52,6 +68,7 @@ pub struct ImageHeader {
     pub image_checksum: u32,
     pub image_header_checksum: u32,
 }
+*/
 
 impl ImageHeader {
     pub fn verify(&self) -> bool {

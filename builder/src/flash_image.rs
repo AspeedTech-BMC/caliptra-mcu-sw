@@ -307,7 +307,9 @@ pub fn generate_image_info(images: Vec<FirmwareImage>) -> Vec<ImageHeader> {
             identifier: image.identifier,
             offset,
             size: image.data.len() as u32,
+            /*
             filename: image.filename,
+            */
             image_checksum: calculate_checksum(image.data),
             image_header_checksum: 0,
         };
