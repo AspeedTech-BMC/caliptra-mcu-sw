@@ -77,7 +77,13 @@ register_structs! {
         (0x0900 => pub vga0_scratch: ReadWrite<u32>),
         (0x0904 => _reserved904),
         (0x0910 => pub vga1_scratch: ReadWrite<u32>),
-        (0x0914 => @END),
+        (0x0914 => _reserved914),
+        /// Host Configuration 1 register.
+        (0x0a00 => pub host_conf1: ReadWrite<u32, HostConf::Register>),
+        (0x0a04 => _reserveda04),
+        /// Host Configuration 2 register.
+        (0x0a20 => pub host_conf2: ReadWrite<u32, HostConf::Register>),
+        (0x0a24 => @END),
     }
 }
 
@@ -200,5 +206,16 @@ pub Scu1SliStatus [
     Sli0Ready    OFFSET(0) NUMBITS(1) [],
     /// Skip SLI calibration (e.g. warm reboot)
     SliSkipCali  OFFSET(1) NUMBITS(1) [],
+],
+
+/// Host Configuration register.
+pub HostConf [
+    /// LPC host interface enable. EDAF is invalid when this bit is set.
+    LpcEn OFFSET(9) NUMBITS(1) [],
+    /// EDAF host interface enable.
+    EdafEn OFFSET(10) NUMBITS(1) [
+        Disabled = 0,
+        Enabled = 1,
+    ],
 ],
 ];
