@@ -400,7 +400,7 @@ pub unsafe fn main() {
     // protection.
 
     // Define platform-specific memory regions
-    let mut platform_regions = ArrayVec::<PlatformRegion, 9>::new();
+    let mut platform_regions = ArrayVec::<PlatformRegion, 10>::new();
 
     // Kernel text region (read + execute)
     platform_regions.push(PlatformRegion {
@@ -504,8 +504,8 @@ pub unsafe fn main() {
 
     // AXICDMA
     platform_regions.push(PlatformRegion {
-        start_addr: caliptra_mcu_registers_generated::axicdma::AXICDMA_ADDR as *const u8,
-        size: 0x1000,
+        start_addr: 0x3000_0000 as *const u8,
+        size: 0x0800_0000,
         is_mmio: true,
         user_accessible: false,
         read: true,
@@ -814,7 +814,6 @@ pub unsafe fn main() {
     // Setup the console.  Userspace `Console::<>::writer()` writes to this
     // syscall driver.  Stripped in `release` builds; user-app `writeln!()` calls use `let _ = ...`
     // so the syscall returning `NoDevice` does not panic.
-    #[cfg(not(feature = "release"))]
     let console = Some(
         components::console::ConsoleComponent::new(
             board_kernel,
@@ -823,8 +822,6 @@ pub unsafe fn main() {
         )
         .finalize(components::console_component_static!()),
     );
-    #[cfg(feature = "release")]
-    let console = None;
 
     // Create a process printer for panic.
     // Disabled by default as this takes almost 20 KB of code space.  Use the

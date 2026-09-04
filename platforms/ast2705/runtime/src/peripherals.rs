@@ -79,9 +79,9 @@ impl<'a> Ast2705Peripherals<'a> {
     pub fn init(&'static self) {
         self.ipc.init();
         self.soc.set_ahb_msb_offset(0x1);
+        self.soc.set_lsu_mbus_map(0x0, 0x1, 0x2, 0x3);
         self.primary_flash_ctrl.init();
         self.secondary_flash_ctrl.init();
-        self.dma.init();
         #[cfg(any(feature = "doe", feature = "test-doe-transport-loopback"))]
         self.doe_transport.init();
 
