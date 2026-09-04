@@ -4,12 +4,17 @@ use crate::aspeed_pci::{pci_init, AspeedPciConfig, PciePortConfig};
 use crate::io::Ast2705Uart16550;
 use caliptra_mcu_aspeed_soc::AhbApertureGate;
 use caliptra_mcu_config_ast2705::peri;
+use caliptra_mcu_edaf_ast2705::{AspeedEdafBridge, EdafBridgeCommands, EdafBridgeConfig};
 use caliptra_mcu_flash_ctrl_ast2705::{AspeedSpiController, AspeedSpiCsConfig};
 use caliptra_mcu_tock_veer::timers::InternalTimers;
 use caliptra_mcu_usb_ast2705::{AspeedUsbConfig, UsbFunction};
 use capsules_core::virtualizers::virtual_alarm::MuxAlarm;
 use kernel::utilities::StaticRef;
 use registers_peripherals::aspeed_dramc::SdramcRegisters;
+use registers_peripherals::aspeed_edaf::EdafBridgeRoute;
+use registers_peripherals::aspeed_edaf::{
+    EdafBridgeGlobalRegisters, EdafBridgeRegisters, EspiChannel3Registers,
+};
 use registers_peripherals::aspeed_soc::SoCRegisters;
 use registers_peripherals::aspeed_spi::AspeedSpiRegisters;
 use registers_peripherals::ast2705::aspeed_dpmcu::{
@@ -67,6 +72,16 @@ pub const ASPEED_USB1_PHY2_BASE: StaticRef<UsbPhy2Registers> =
     unsafe { StaticRef::new(USB1_PHY2_BASE as *const UsbPhy2Registers) };
 pub const ASPEED_USB1_EHCI_BASE: StaticRef<BEhciRegisters> =
     unsafe { StaticRef::new(USB1_EHCI_BASE as *const BEhciRegisters) };
+pub const EDAF_BRIDGE_GLOBAL_BASE: StaticRef<EdafBridgeGlobalRegisters> =
+    unsafe { StaticRef::new(peri::EDAF_BRIDGE_GLOBAL_ADDR as *const EdafBridgeGlobalRegisters) };
+pub const EDAF_BRIDGE0_BASE: StaticRef<EdafBridgeRegisters> =
+    unsafe { StaticRef::new(peri::EDAF_BRIDGE0_ADDR as *const EdafBridgeRegisters) };
+pub const EDAF_BRIDGE1_BASE: StaticRef<EdafBridgeRegisters> =
+    unsafe { StaticRef::new(peri::EDAF_BRIDGE1_ADDR as *const EdafBridgeRegisters) };
+pub const EDAF_BRIDGE0_ESPI_BASE: StaticRef<EspiChannel3Registers> =
+    unsafe { StaticRef::new(peri::EDAF_BRIDGE0_ESPI_BASE as *const EspiChannel3Registers) };
+pub const EDAF_BRIDGE1_ESPI_BASE: StaticRef<EspiChannel3Registers> =
+    unsafe { StaticRef::new(peri::EDAF_BRIDGE1_ESPI_BASE as *const EspiChannel3Registers) };
 
 // erase_page() scratch space, one sector per instance.
 static mut PRIMARY_ERASE_SCRATCH: [u8; caliptra_mcu_flash_ctrl_ast2705::ERASE_SECTOR_SIZE] =
@@ -100,6 +115,8 @@ pub struct Ast2705Peripherals<'a> {
     pub spi2_cs0_flash_ctrl: caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashCtrl<'a>,
     pub spi2_cs1_flash_ctrl: caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashCtrl<'a>,
     pub dma: caliptra_mcu_dma_common::nodma::NoDMA,
+    pub edaf0: caliptra_mcu_edaf_ast2705::AspeedEdafBridge,
+    pub edaf1: caliptra_mcu_edaf_ast2705::AspeedEdafBridge,
     #[cfg(any(feature = "doe", feature = "test-doe-transport-loopback"))]
     pub doe_transport:
         caliptra_mcu_doe_mbox_driver_ast2705::EmulatedDoeTransport<'a, InternalTimers<'a>>,
@@ -213,6 +230,56 @@ impl<'a> Ast2705Peripherals<'a> {
                 },
                 unsafe { &mut SPI0_ERASE_SCRATCH },
             ),
+            edaf0: AspeedEdafBridge::new(
+                EDAF_BRIDGE0_BASE,
+                EDAF_BRIDGE_GLOBAL_BASE,
+                EDAF_BRIDGE0_ESPI_BASE,
+                ASPEED_SCU1_BASE,
+                EdafBridgeConfig {
+                    enabled: peri::EDAF_BRIDGE0_ENABLE,
+                    route: EdafBridgeRoute::Espi0,
+                    ddr_mode: peri::EDAF_BRIDGE0_DDR_MODE,
+                    erase_with_one: peri::EDAF_BRIDGE0_ERASE_WITH_ONE,
+                    mem_base: if peri::EDAF_BRIDGE0_DDR_MODE {
+                        peri::EDAF_BRIDGE0_DDR_MEM_BASE
+                    } else {
+                        peri::EDAF_BRIDGE0_SPI_MEM_BASE
+                    },
+                    ctl_base: peri::EDAF_BRIDGE0_CTL_BASE,
+                    commands: EdafBridgeCommands {
+                        read: peri::EDAF_BRIDGE0_CMD_READ,
+                        write_enable: peri::EDAF_BRIDGE0_CMD_WRITE_ENABLE,
+                        write: peri::EDAF_BRIDGE0_CMD_WRITE,
+                        read_status: peri::EDAF_BRIDGE0_CMD_READ_STATUS,
+                        erase_4k: peri::EDAF_BRIDGE0_CMD_ERASE_4K,
+                        erase_32k: peri::EDAF_BRIDGE0_CMD_ERASE_32K,
+                        erase_64k: peri::EDAF_BRIDGE0_CMD_ERASE_64K,
+                    },
+                },
+            ),
+            edaf1: AspeedEdafBridge::new(
+                EDAF_BRIDGE1_BASE,
+                EDAF_BRIDGE_GLOBAL_BASE,
+                EDAF_BRIDGE1_ESPI_BASE,
+                ASPEED_SCU1_BASE,
+                EdafBridgeConfig {
+                    enabled: peri::EDAF_BRIDGE1_ENABLE,
+                    route: EdafBridgeRoute::Espi1,
+                    ddr_mode: peri::EDAF_BRIDGE1_DDR_MODE,
+                    erase_with_one: peri::EDAF_BRIDGE1_ERASE_WITH_ONE,
+                    mem_base: peri::EDAF_BRIDGE1_MEM_BASE,
+                    ctl_base: peri::EDAF_BRIDGE1_CTL_BASE,
+                    commands: EdafBridgeCommands {
+                        read: peri::EDAF_BRIDGE1_CMD_READ,
+                        write_enable: peri::EDAF_BRIDGE1_CMD_WRITE_ENABLE,
+                        write: peri::EDAF_BRIDGE1_CMD_WRITE,
+                        read_status: peri::EDAF_BRIDGE1_CMD_READ_STATUS,
+                        erase_4k: peri::EDAF_BRIDGE1_CMD_ERASE_4K,
+                        erase_32k: peri::EDAF_BRIDGE1_CMD_ERASE_32K,
+                        erase_64k: peri::EDAF_BRIDGE1_CMD_ERASE_64K,
+                    },
+                },
+            ),
             spi1_cs0_flash_ctrl: caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashCtrl::new(
                 AspeedSpiController {
                     regs: SPI1_CTRL_BASE,
@@ -304,6 +371,8 @@ impl<'a> Ast2705Peripherals<'a> {
 
         #[cfg(any(feature = "doe", feature = "test-doe-transport-loopback"))]
         self.doe_transport.init();
+        let _ = self.edaf0.init();
+        let _ = self.edaf1.init();
 
         let port_cfg = PciePortConfig {
             has_vga: true,
