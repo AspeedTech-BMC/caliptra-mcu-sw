@@ -2,24 +2,16 @@
 
 #![cfg_attr(target_arch = "riscv32", no_std)]
 
-use caliptra_mcu_registers_generated::primary_flash_ctrl::{
-    bits::{CtrlRegwen, FlControl, FlInterruptEnable, FlInterruptState, OpStatus},
-    regs::PrimaryFlashCtrl,
-    PRIMARY_FLASH_CTRL_ADDR,
-};
-use caliptra_mcu_registers_generated::secondary_flash_ctrl::SECONDARY_FLASH_CTRL_ADDR;
 use core::ops::{Index, IndexMut};
 use kernel::deferred_call::{DeferredCall, DeferredCallClient};
 use kernel::hil;
 use kernel::utilities::cells::{OptionalCell, TakeCell};
-use kernel::utilities::registers::interfaces::{ReadWriteable, Readable, Writeable};
 use kernel::utilities::StaticRef;
 use kernel::ErrorCode;
 use registers_peripherals::aspeed_spi::AspeedSpiRegisters;
 
 pub const PAGE_SIZE: usize = 256;
 pub const ERASE_SECTOR_SIZE: usize = 4096;
-const FLASH_MAX_SIZE: usize = 256 * 1024 * 1024;
 pub const FLASH_MAX_PAGES: usize = 256 * 1024 * 1024 / PAGE_SIZE;
 
 const FMC_MAP_MEMORY: usize = 0x0C00_0000;
@@ -77,7 +69,6 @@ pub struct Ast2705FlashCtrl<'a> {
     registers: StaticRef<AspeedSpiRegisters>,
     flash_client: OptionalCell<&'a dyn hil::flash::Client<Ast2705FlashCtrl<'a>>>,
     read_buf: TakeCell<'static, Ast2705FlashPage>,
-    write_buf: TakeCell<'static, Ast2705FlashPage>,
     deferred_call: DeferredCall,
 }
 
@@ -87,7 +78,6 @@ impl<'a> Ast2705FlashCtrl<'a> {
             registers: base,
             flash_client: OptionalCell::empty(),
             read_buf: TakeCell::empty(),
-            write_buf: TakeCell::empty(),
             deferred_call: DeferredCall::new(),
         }
     }

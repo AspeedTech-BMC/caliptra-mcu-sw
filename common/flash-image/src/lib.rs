@@ -42,7 +42,7 @@ impl FlashHeader {
     }
 }
 
-/* 
+/*
  * Revert to legacy format: boards still hold pre-HEADER_VERSION-3 images
  * without this field (added in beb9a717). Restoring it also needs
  * HEADER_VERSION back to 3 and the filename plumbing in

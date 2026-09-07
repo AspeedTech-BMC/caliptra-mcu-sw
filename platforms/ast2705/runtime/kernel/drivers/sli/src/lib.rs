@@ -12,7 +12,6 @@ macro_rules! sli_log {
     ($($arg:tt)*) => {};
 }
 
-use caliptra_mcu_capsules_runtime::bootdev::hil::{KernelImageClient, KernelImageLoader};
 use kernel::utilities::registers::interfaces::{ReadWriteable, Readable, Writeable};
 use kernel::utilities::registers::ReadWrite;
 use kernel::utilities::StaticRef;
@@ -520,8 +519,8 @@ fn slim_calibrate_lane(
 
     let mut d_first = -1i32;
     let mut d_last = -1i32;
-    let dir = if is_ds { "DS" } else { "US" };
-    let die = if is_ds ^ is_k_rx { "CPU" } else { "IO" };
+    let _dir = if is_ds { "DS" } else { "US" };
+    let _die = if is_ds ^ is_k_rx { "CPU" } else { "IO" };
 
     for _ in 0..SLIM_RETRY_COUNT {
         for d in begin..end {
@@ -537,7 +536,7 @@ fn slim_calibrate_lane(
                     d_first = d;
                 }
                 d_last = d;
-                sli_log!("[slim-{}]({})({}) d={} found", index, dir, die, d);
+                sli_log!("[slim-{}]({})({}) d={} found", index, _dir, _die, d);
             } else if d_last != -1 {
                 break;
             }
@@ -580,8 +579,8 @@ fn calibrate_mbus_delay(
     win_high: &ReadWrite<u32>,
 ) {
     let (tx, rx, kx) = slim_dir(cpu_slim, io_slim, is_ds, is_k_rx);
-    let dir = if is_ds { "DS" } else { "US" };
-    let die = if is_ds ^ is_k_rx { "CPU" } else { "IO" };
+    let _dir = if is_ds { "DS" } else { "US" };
+    let _die = if is_ds ^ is_k_rx { "CPU" } else { "IO" };
 
     rx.ctrl1.modify(CtrlI::AutoSendTrnOff::SET);
 
@@ -604,7 +603,7 @@ fn calibrate_mbus_delay(
                     d_first = dc;
                 }
                 d_last = dc;
-                sli_log!("[slim]({})({}) dc={} found", dir, die, dc);
+                sli_log!("[slim]({})({}) dc={} found", _dir, _die, dc);
             } else if d_last != -1 {
                 let w = d_last - d_first;
                 if w > win_size {
@@ -626,22 +625,22 @@ fn calibrate_mbus_delay(
         }
         d_first = -1;
         d_last = -1;
-        sli_log!("[slim]({})({}) retry", dir, die);
+        sli_log!("[slim]({})({}) retry", _dir, _die);
     }
 
     if dc_best == 0 {
         sli_log!(
             "[slim]({})({}): no window found, using default dc={}",
-            dir,
-            die,
+            _dir,
+            _die,
             SLIM_DEFAULT_DELAY
         );
         dc_best = SLIM_DEFAULT_DELAY;
     } else {
         sli_log!(
             "[slim]({})({}): win={} -> dc_best={}",
-            dir,
-            die,
+            _dir,
+            _die,
             win_size,
             dc_best
         );
@@ -707,8 +706,8 @@ fn calibrate_video_delay(
         (io_sliv, cpu_sliv)
     };
     let kx = if is_k_rx { rx } else { tx };
-    let dir = if is_ds { "DS" } else { "US" };
-    let die = if is_ds ^ is_k_rx { "CPU" } else { "IO" };
+    let _dir = if is_ds { "DS" } else { "US" };
+    let _die = if is_ds ^ is_k_rx { "CPU" } else { "IO" };
 
     rx.ctrl1.modify(CtrlI::AutoSendTrnOff::SET);
     tx.ctrl1.modify(CtrlI::AutoSendTrnOff::SET);
@@ -744,7 +743,7 @@ fn calibrate_video_delay(
                 d_first = d;
             }
             d_last = d;
-            sli_log!("[sliv]({})({}) dc={} found", dir, die, d);
+            sli_log!("[sliv]({})({}) dc={} found", _dir, _die, d);
         } else if d_last != -1 {
             let w = d_last - d_first;
             if w > win_size {
@@ -766,8 +765,8 @@ fn calibrate_video_delay(
         } else {
             sli_log!(
                 "[sliv]({})({}): no window found, using default d={}",
-                dir,
-                die,
+                _dir,
+                _die,
                 d_def
             );
             d_first = d_def;
@@ -782,8 +781,8 @@ fn calibrate_video_delay(
 
     sli_log!(
         "[sliv]({})({}): d_first={} d_last={} -> d={}",
-        dir,
-        die,
+        _dir,
+        _die,
         d_first,
         d_last,
         d

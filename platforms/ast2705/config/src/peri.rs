@@ -11,8 +11,6 @@ pub const ASPEED_DRAM_PHY_ADDR: u32 = 0x3300_0000;
 /* IO die peripheral address */
 pub const ASPEED_FMC_CTRL_ADDR: u32 = 0x3400_0000;
 pub const ASPEED_SCU1_ADDR: u32 = 0x34c0_2000;
-const ASPEED_OTP_ADDR: u32 = 0x34c0_7000;
-const ASPEED_WDT0_ADDR: u32 = 0x34c3_7000;
 pub const ASPEED_IPC_TX_ADDR: u32 = 0x34c3_9880;
 pub const ASPEED_IPC_RX_ADDR: u32 = 0x34c3_9800;
 pub const ASPEED_IPC_SHM_ADDR: u32 = 0x34b9_f000;

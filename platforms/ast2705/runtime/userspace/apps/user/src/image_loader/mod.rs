@@ -526,6 +526,7 @@ fn hitless_attestation_test_enabled() -> bool {
     feature = "test-mctp-spdm-attestation-hitless-tcb",
     feature = "test-mctp-spdm-attestation-hitless-mixed"
 )))]
+#[allow(dead_code)]
 fn hitless_attestation_test_enabled() -> bool {
     false
 }

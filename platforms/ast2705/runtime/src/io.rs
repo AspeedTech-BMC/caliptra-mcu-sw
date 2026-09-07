@@ -17,7 +17,6 @@ use core::panic::PanicInfo;
 #[cfg(not(feature = "release"))]
 use core::ptr::addr_of;
 use core::ptr::addr_of_mut;
-use core::ptr::{read_volatile, write_volatile};
 #[cfg(not(feature = "release"))]
 use kernel::debug;
 use kernel::debug::IoWrite;
@@ -26,7 +25,7 @@ use kernel::hil;
 use kernel::utilities::cells::{OptionalCell, TakeCell};
 use kernel::utilities::StaticRef;
 use kernel::ErrorCode;
-use registers_peripherals::uart16550::{Uart16550Registers, IER, IIR, LCR, LSR, THR};
+use registers_peripherals::uart16550::{Uart16550Registers, IER, LCR, LSR, THR};
 use tock_registers::interfaces::{ReadWriteable, Readable, Writeable};
 
 pub(crate) static mut RUNTIME_WRITER: Writer = Writer {};
@@ -72,7 +71,6 @@ pub unsafe fn panic_fmt(pi: &PanicInfo) -> ! {
 /// Exit the ast2705
 pub fn exit_ast2705(_exit_code: u32) -> ! {
     loop {}
-    unreachable!()
 }
 
 pub struct Writer {}

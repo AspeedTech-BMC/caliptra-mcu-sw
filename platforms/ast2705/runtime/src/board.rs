@@ -55,15 +55,17 @@ use caliptra_mcu_components::{flash_partition_component_static, instantiate_flas
 use caliptra_mcu_config_ast2705::flash::AST2705_EXT_OTP_PARTITION;
 #[cfg(feature = "crash-log")]
 use caliptra_mcu_config_ast2705::flash::CRASH_LOG_PARTITION;
+use caliptra_mcu_config_ast2705::flash::IMAGE_A_PARTITION;
 #[cfg(feature = "userspace-log")]
 use caliptra_mcu_config_ast2705::flash::LOGGING_PARTITION;
+#[cfg(any(feature = "flash-boot", feature = "firmware-update"))]
 use caliptra_mcu_config_ast2705::flash::{
-    CERT_STORE_PARTITION, IMAGE_A_PARTITION, IMAGE_B_PARTITION, PARTITION_TABLE, STAGING_PARTITION,
+    CERT_STORE_PARTITION, IMAGE_B_PARTITION, PARTITION_TABLE, STAGING_PARTITION,
 };
 #[cfg(feature = "userspace-log")]
 use caliptra_mcu_config_ast2705::logging_flash_list;
+#[cfg(any(feature = "flash-boot", feature = "firmware-update"))]
 use caliptra_mcu_config_ast2705::{flash_partition_list_primary, flash_partition_list_secondary};
-use caliptra_mcu_dma_driver::nodma;
 #[cfg(feature = "doe")]
 use caliptra_mcu_doe_mbox_driver::EmulatedDoeTransport;
 use caliptra_mcu_platforms_common::handoff::HandOff;
@@ -652,6 +654,8 @@ pub unsafe fn main() {
             .finalize(components::flash_mux_component_static!(
                 caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashCtrl
             ));
+
+    #[cfg(any(feature = "flash-boot", feature = "firmware-update"))]
     let mux_secondary_flash =
         components::flash::FlashMuxComponent::new(&ast2705_peripherals.secondary_flash_ctrl)
             .finalize(components::flash_mux_component_static!(

@@ -45,4 +45,5 @@ rustflags = [
     "--remap-path-prefix=/root/caliptra-mcu-sw=.",
     "--remap-path-prefix=/root/.cargo/registry=registry",
     "--remap-path-prefix=/root/.cargo/git=git",
+    "-Dwarnings"
 ]
