@@ -46,7 +46,7 @@ function check-commit-title {
         "common: "
         "registers: "
         "builder: "
-        "tool: "
+        "tools: "
     )
 
     for p in "${allowed_prefixes[@]}"; do
@@ -86,6 +86,29 @@ function check-commit-path {
     if grep -qE '(^|/)(rom)(/|$)' <<<"$change_file_list"; then
         log "$commit_id changes a file under rom/:"
         log "$(grep -E '(^|/)(rom)(/|$)' <<<"$change_file_list")"
+        return 1
+    fi
+
+    log "$commit_id ...ok"
+
+    return 0
+}
+
+function check-commit-scope {
+    commit_id=$1
+    change_file_list=$(git show --name-only --format='' "$commit_id")
+
+    if grep -qE '^registers/' <<<"$change_file_list" \
+        && grep -qvE '^registers/' <<<"$change_file_list"; then
+        log "$commit_id mixes registers/ changes with other paths:"
+        log "$(grep -vE '^registers/' <<<"$change_file_list")"
+        return 1
+    fi
+
+    if grep -qE '^common/' <<<"$change_file_list" \
+        && grep -qvE '^common/' <<<"$change_file_list"; then
+        log "$commit_id mixes common/ changes with other paths:"
+        log "$(grep -vE '^common/' <<<"$change_file_list")"
         return 1
     fi
 
@@ -154,5 +177,8 @@ check-multi-item check-commit-body "$commit_list" || result=1
 
 # Check commit path
 check-multi-item check-commit-path "$commit_list" || result=1
+
+# Check commit scope: registers/common changes must not mix with other paths
+check-multi-item check-commit-scope "$commit_list" || result=1
 
 exit $result
