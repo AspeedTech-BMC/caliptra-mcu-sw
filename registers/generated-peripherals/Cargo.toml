@@ -9,4 +9,5 @@ tock-registers.workspace = true
 
 [features]
 default = []
+ast1040-register = []
 ast2705-register = []

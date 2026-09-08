@@ -11,3 +11,6 @@ pub mod uart16550;
 
 #[cfg(feature = "ast2705-register")]
 pub mod ast2705;
+
+#[cfg(feature = "ast1040-register")]
+pub mod ast1040;
