@@ -26,8 +26,13 @@ function ci-check-commit-list {
 
 function check-format {
     echo -ne "[${MODULE}] check caliptra-mcu-sw coding style..."
-    cargo fmt --check -q
-    echo "done"
+
+    if cargo fmt --check -q; then
+        echo "done"
+    else
+        echo "failed"
+        return 1
+    fi
 }
 
 function check-commit-title {
@@ -51,12 +56,12 @@ function check-commit-title {
 
     for p in "${allowed_prefixes[@]}"; do
         [[ "$commit_title" == "$p"* ]] && {
-            log "$id ...ok"
+            log "$commit_id ...ok"
             return 0
         }
     done
 
-    log "$id $commit_title invalid."
+    log "$commit_id $commit_title invalid."
     return 1
 }
 
@@ -157,11 +162,16 @@ function check-multi-item {
 # Global Variables
 ##########################################################
 MODULE="SS-PRE-CI"
+DIR="$(dirname "$(realpath "$0")")"
+CPTRA_MCU_DIR=$DIR/../
 
 ##########################################################
 # Main Flow
 ##########################################################
 result=0
+
+pushd .
+cd $CPTRA_MCU_DIR
 
 # Get all checked commit list
 commit_list=$(ci-check-commit-list)
@@ -180,5 +190,7 @@ check-multi-item check-commit-path "$commit_list" || result=1
 
 # Check commit scope: registers/common changes must not mix with other paths
 check-multi-item check-commit-scope "$commit_list" || result=1
+
+popd
 
 exit $result
