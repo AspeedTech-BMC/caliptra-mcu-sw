@@ -1,0 +1,467 @@
+// Licensed under the Apache-2.0 license
+mod config;
+#[cfg(feature = "test-streaming-boot-flash-write-back")]
+pub mod flash_staging;
+
+extern crate alloc;
+use caliptra_mcu_libsyscall_caliptra::dma::DMAMapping;
+use caliptra_mcu_libsyscall_caliptra::mci::{mci_reg::RESET_REASON, Mci as MciSyscall};
+use caliptra_mcu_libsyscall_caliptra::DefaultSyscalls;
+use caliptra_mcu_libtock_console::Console;
+#[allow(unused_imports)]
+use core::fmt::Write;
+
+#[cfg(feature = "firmware-update")]
+use crate::EXECUTOR;
+
+#[cfg(feature = "firmware-update")]
+use mcu_caliptra_api::firmware_update::{FirmwareUpdater, PldmFirmwareDeviceParams};
+
+#[cfg(feature = "flash-boot")]
+use mcu_caliptra_api::firmware_update::FirmwareUpdateHooks;
+
+use caliptra_mcu_libtock_platform::ErrorCode;
+use caliptra_mcu_scratch_alloc::{BitmapAllocator, StaticBitmapAllocatorCell, BITMAP_SLOT_SIZE};
+use core::ptr::NonNull;
+const RESET_REASON_FW_HITLESS_UPD_RESET_MASK: u32 = 0x1;
+const FW_UPDATE_SCRATCH_SIZE: usize = 2 * 1024;
+const FW_UPDATE_SCRATCH_SLOTS: usize = FW_UPDATE_SCRATCH_SIZE / BITMAP_SLOT_SIZE;
+
+#[repr(C, align(64))]
+#[derive(Clone, Copy)]
+struct FwUpdateScratchSlot([u8; BITMAP_SLOT_SIZE]);
+
+static mut FW_UPDATE_SCRATCH: [FwUpdateScratchSlot; FW_UPDATE_SCRATCH_SLOTS] =
+    [FwUpdateScratchSlot([0; BITMAP_SLOT_SIZE]); FW_UPDATE_SCRATCH_SLOTS];
+static FW_UPDATE_ALLOCATOR: StaticBitmapAllocatorCell = StaticBitmapAllocatorCell::new();
+
+#[allow(dead_code)]
+pub async fn firmware_update<D: DMAMapping>(
+    dma_mapping: &D,
+    soc_image_load_list: &'static [u32],
+) -> Result<(), ErrorCode> {
+    let mut console_writer = Console::<DefaultSyscalls>::writer();
+    let reset_reason = get_reset_reason()?;
+
+    if reset_reason & RESET_REASON_FW_HITLESS_UPD_RESET_MASK
+        == RESET_REASON_FW_HITLESS_UPD_RESET_MASK
+    {
+        // Device rebooted due to firmware update, skip firmware update
+        return Ok(());
+    }
+
+    // SAFETY: firmware update runs once before reset and exclusively owns this
+    // static scratch region for the lifetime of every updater below.
+    let scratch_ptr =
+        unsafe { NonNull::new_unchecked(core::ptr::addr_of_mut!(FW_UPDATE_SCRATCH).cast::<u8>()) };
+    debug_assert_eq!(scratch_ptr.as_ptr() as usize % BITMAP_SLOT_SIZE, 0);
+    let allocator: &'static BitmapAllocator =
+        unsafe { FW_UPDATE_ALLOCATOR.init_once(scratch_ptr, FW_UPDATE_SCRATCH_SIZE) };
+
+    crate::log_info!(console_writer, "[FW Upd] Start");
+    #[cfg(feature = "test-firmware-update-streaming")]
+    {
+        use crate::EXECUTOR;
+        use mcu_caliptra_api::firmware_update::{FirmwareUpdater, PldmFirmwareDeviceParams};
+        let fw_params = PldmFirmwareDeviceParams {
+            descriptors: &config::fw_update_consts::DESCRIPTOR.get()[..],
+            fw_params: config::fw_update_consts::FIRMWARE_PARAMS.get(),
+        };
+        let mut staging_memory = dummy_flash::ExternalFlash::new().await?;
+        let staging_memory: &'static dummy_flash::ExternalFlash =
+            unsafe { core::mem::transmute(&mut staging_memory) };
+        let mut updater = FirmwareUpdater::new(
+            staging_memory,
+            allocator,
+            &fw_params,
+            soc_image_load_list,
+            dma_mapping,
+            EXECUTOR.get().spawner(),
+            None,
+        );
+        updater.start().await?;
+    }
+
+    #[cfg(feature = "flash-boot")]
+    {
+        use alloc::boxed::Box;
+        use core::sync::atomic::{AtomicBool, Ordering};
+
+        struct TestFwUpdateHooks {
+            pre_caliptra_called: AtomicBool,
+        }
+
+        #[async_trait::async_trait]
+        impl FirmwareUpdateHooks for TestFwUpdateHooks {
+            fn on_fw_update_request(
+                &self,
+                _component: &caliptra_mcu_pldm_common::util::fw_component::FirmwareComponent,
+            ) -> Result<(), ErrorCode> {
+                #[cfg(feature = "test-firmware-update-reject")]
+                {
+                    crate::log_info!(
+                        Console::<DefaultSyscalls>::writer(),
+                        "[FW Upd] Rejecting firmware update request"
+                    );
+                    return Err(ErrorCode::Fail);
+                }
+                #[cfg(not(feature = "test-firmware-update-reject"))]
+                Ok(())
+            }
+
+            async fn pre_caliptra_activation(&self) -> Result<(), ErrorCode> {
+                self.pre_caliptra_called.store(true, Ordering::SeqCst);
+                Ok(())
+            }
+
+            async fn pre_mcu_activation(&self) -> Result<(), ErrorCode> {
+                if !self.pre_caliptra_called.load(Ordering::SeqCst) {
+                    crate::log_error!(
+                        Console::<DefaultSyscalls>::writer(),
+                        "[FW Upd] ERROR: pre_caliptra_activation hook not called"
+                    );
+                    return Err(ErrorCode::Fail);
+                }
+                Ok(())
+            }
+        }
+
+        let fw_params = PldmFirmwareDeviceParams {
+            descriptors: &config::fw_update_consts::DESCRIPTOR.get()[..],
+            fw_params: config::fw_update_consts::FIRMWARE_PARAMS.get(),
+        };
+        let mut staging_memory = flash_memory::ExternalFlash::new().await?;
+        let staging_memory: &'static flash_memory::ExternalFlash =
+            unsafe { core::mem::transmute(&mut staging_memory) };
+        let hooks = TestFwUpdateHooks {
+            pre_caliptra_called: AtomicBool::new(false),
+        };
+        let mut updater = FirmwareUpdater::new(
+            staging_memory,
+            allocator,
+            &fw_params,
+            soc_image_load_list,
+            dma_mapping,
+            EXECUTOR.get().spawner(),
+            Some(&hooks),
+        );
+        updater.start().await?;
+    }
+
+    #[cfg(feature = "test-streaming-boot-flash-write-back")]
+    {
+        let fw_params = PldmFirmwareDeviceParams {
+            descriptors: &config::fw_update_consts::DESCRIPTOR.get()[..],
+            fw_params: config::fw_update_consts::FIRMWARE_PARAMS.get(),
+        };
+        let staging_memory: &'static flash_staging::SpiFlashStagingMemory =
+            flash_staging::STAGING_MEMORY.get();
+        staging_memory.erase().await?;
+        let mut updater = FirmwareUpdater::new(
+            staging_memory,
+            allocator,
+            &fw_params,
+            soc_image_load_list,
+            dma_mapping,
+            EXECUTOR.get().spawner(),
+            None,
+        );
+        updater.set_skip_activation(true);
+        updater.set_verify_same_image(true);
+        updater.start().await?;
+        crate::log_info!(console_writer, "[FW Upd] Flash write-back complete");
+        return Ok(());
+    }
+
+    #[cfg(feature = "test-firmware-activate")]
+    {
+        use caliptra_mcu_flash_image::FlashHeader;
+        use mcu_caliptra_api::firmware_update::StagingMemory;
+        use zerocopy::FromBytes;
+
+        let fw_params = PldmFirmwareDeviceParams {
+            descriptors: &config::fw_update_consts::DESCRIPTOR.get()[..],
+            fw_params: config::fw_update_consts::FIRMWARE_PARAMS.get(),
+        };
+        let mut staging_memory = dummy_flash::ExternalFlash::new().await?;
+        let mut flash_header = [0u8; core::mem::size_of::<FlashHeader>()];
+        staging_memory
+            .read(0, &mut flash_header)
+            .await
+            .map_err(|_| ErrorCode::Fail)?;
+        let (flash_header, _) =
+            FlashHeader::read_from_prefix(&flash_header).map_err(|_| ErrorCode::Fail)?;
+        let staging_memory: &'static dummy_flash::ExternalFlash =
+            unsafe { core::mem::transmute(&mut staging_memory) };
+
+        flash_header.verify().then_some(()).ok_or(ErrorCode::Fail)?;
+
+        let mut updater = FirmwareUpdater::new(
+            staging_memory,
+            allocator,
+            &fw_params,
+            soc_image_load_list,
+            dma_mapping,
+            EXECUTOR.get().spawner(),
+            None,
+        );
+
+        updater.update_mcu_with_auth_manifest(&flash_header).await?;
+        return Ok(());
+    }
+
+    // Trigger MCU warm reset to boot into new firmware
+    crate::log_info!(console_writer, "[FW Upd] Triggering MCU reset");
+    let mci = MciSyscall::<DefaultSyscalls>::new();
+    mci.trigger_warm_reset()?;
+
+    Ok(())
+}
+
+fn get_reset_reason() -> Result<u32, ErrorCode> {
+    let mci = MciSyscall::<DefaultSyscalls>::new();
+    let reason = mci.read(RESET_REASON, 0)?;
+    Ok(reason)
+}
+
+#[cfg(feature = "streaming-boot")]
+#[allow(dead_code)]
+mod external_memory {
+    extern crate alloc;
+    use alloc::boxed::Box;
+    use async_trait::async_trait;
+    use caliptra_mcu_libsyscall_caliptra::dma::{
+        DMAMapping, DMASource, DMATransaction, DMA as DMASyscall,
+    };
+    use caliptra_mcu_libtock_platform::ErrorCode;
+    use core::fmt::Debug;
+    use mcu_caliptra_api::firmware_update::StagingMemory;
+
+    use crate::image_loader::AST1040_DMA_MAPPING;
+
+    const DMA_TRANSFER_SIZE: usize = 512;
+    const DEVICE_EXTERNAL_SRAM_BASE: u64 = 0xB00C0000;
+
+    pub static STAGING_MEMORY: embassy_sync::lazy_lock::LazyLock<ExternalRAM> =
+        embassy_sync::lazy_lock::LazyLock::new(|| ExternalRAM::new(&AST1040_DMA_MAPPING));
+
+    pub struct ExternalRAM {
+        dma_syscall: DMASyscall,
+        dma_mapping: &'static dyn DMAMapping,
+    }
+
+    impl ExternalRAM {
+        pub fn new(dma_mapping: &'static dyn DMAMapping) -> Self {
+            ExternalRAM {
+                dma_syscall: DMASyscall::new(),
+                dma_mapping,
+            }
+        }
+    }
+
+    #[async_trait]
+    impl StagingMemory for ExternalRAM {
+        async fn write(&self, offset: usize, data: &[u8]) -> Result<(), ErrorCode> {
+            let mut current_offset = offset;
+            while current_offset < offset + data.len() {
+                let transfer_size = (offset + data.len() - current_offset).min(DMA_TRANSFER_SIZE);
+                let source_address = self.dma_mapping.mcu_sram_to_mcu_axi(data.as_ptr() as u32)?;
+                let transaction = DMATransaction {
+                    byte_count: transfer_size,
+                    source: DMASource::Address(source_address),
+                    dest_addr: DEVICE_EXTERNAL_SRAM_BASE + current_offset as u64,
+                };
+                self.dma_syscall.xfer(&transaction).await?;
+                current_offset += transfer_size;
+            }
+
+            Ok(())
+        }
+
+        async fn read(&self, offset: usize, data: &mut [u8]) -> Result<(), ErrorCode> {
+            let dest_address = self
+                .dma_mapping
+                .mcu_sram_to_mcu_axi(data.as_mut_ptr() as u32)?;
+            let transaction: DMATransaction<'_> = DMATransaction {
+                byte_count: data.len(),
+                source: DMASource::Address(DEVICE_EXTERNAL_SRAM_BASE + offset as u64),
+                dest_addr: dest_address,
+            };
+            self.dma_syscall.xfer(&transaction).await
+        }
+
+        async fn image_valid(&self, _img_sz: usize) -> Result<(), ErrorCode> {
+            Ok(())
+        }
+
+        fn size(&self) -> usize {
+            // Return the size of the staging memory. Replace with actual value if needed.
+            256 * 1024 // 256 KiB as an example
+        }
+    }
+
+    impl Debug for ExternalRAM {
+        fn fmt(&self, _f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+            Ok(())
+        }
+    }
+}
+
+#[cfg(any(
+    feature = "test-firmware-update-streaming",
+    feature = "test-firmware-activate"
+))]
+mod dummy_flash {
+    extern crate alloc;
+    use alloc::boxed::Box;
+    use async_trait::async_trait;
+    use caliptra_mcu_config_fpga::flash::DRIVER_NUM_EMULATED_FLASH_CTRL;
+    use caliptra_mcu_libsyscall_caliptra::flash::{FlashCapacity, SpiFlash as FlashSyscall};
+    use caliptra_mcu_libtock_platform::ErrorCode;
+    use core::fmt::Debug;
+    use mcu_caliptra_api::firmware_update::StagingMemory;
+
+    pub struct ExternalFlash {
+        flash_syscall: FlashSyscall,
+    }
+
+    impl ExternalFlash {
+        pub async fn new() -> Result<Self, ErrorCode> {
+            Ok(ExternalFlash {
+                flash_syscall: FlashSyscall::new(DRIVER_NUM_EMULATED_FLASH_CTRL as u32),
+            })
+        }
+    }
+
+    #[async_trait]
+    impl StagingMemory for ExternalFlash {
+        async fn write(&self, offset: usize, data: &[u8]) -> Result<(), ErrorCode> {
+            self.flash_syscall.write(offset, data.len(), data).await
+        }
+
+        async fn read(&self, offset: usize, data: &mut [u8]) -> Result<(), ErrorCode> {
+            self.flash_syscall.read(offset, data.len(), data).await
+        }
+
+        async fn image_valid(&self, _img_sz: usize) -> Result<(), ErrorCode> {
+            Ok(())
+        }
+
+        fn size(&self) -> usize {
+            self.flash_syscall
+                .get_capacity()
+                .unwrap_or(FlashCapacity(0))
+                .0 as usize
+        }
+    }
+
+    impl Debug for ExternalFlash {
+        fn fmt(&self, _f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+            Ok(())
+        }
+    }
+}
+
+#[cfg(feature = "flash-boot")]
+mod flash_memory {
+    extern crate alloc;
+    use alloc::boxed::Box;
+    use async_trait::async_trait;
+    use caliptra_mcu_config::boot::{BootConfigAsync, PartitionStatus};
+    use caliptra_mcu_config_ast1040::flash::STAGING_PARTITION;
+    use caliptra_mcu_libapi_ast1040_caliptra::image_loading::flash_boot_cfg::FlashBootConfig;
+    use caliptra_mcu_libsyscall_caliptra::{
+        flash::{FlashCapacity, SpiFlash as FlashSyscall},
+        DefaultSyscalls,
+    };
+    use caliptra_mcu_libtock_platform::ErrorCode;
+    use core::fmt::Debug;
+    use mcu_caliptra_api::firmware_update::StagingMemory;
+
+    use caliptra_mcu_libtock_console::Console;
+    #[allow(unused_imports)]
+    use core::fmt::Write;
+
+    pub struct ExternalFlash {
+        flash_syscall: FlashSyscall,
+    }
+
+    impl ExternalFlash {
+        pub async fn new() -> Result<Self, ErrorCode> {
+            Ok(ExternalFlash {
+                flash_syscall: FlashSyscall::new(STAGING_PARTITION.driver_num),
+            })
+        }
+    }
+
+    #[async_trait]
+    impl StagingMemory for ExternalFlash {
+        async fn write(&self, offset: usize, data: &[u8]) -> Result<(), ErrorCode> {
+            self.flash_syscall.write(offset, data.len(), data).await
+        }
+
+        async fn read(&self, offset: usize, data: &mut [u8]) -> Result<(), ErrorCode> {
+            self.flash_syscall.read(offset, data.len(), data).await
+        }
+
+        async fn image_valid(&self, img_sz: usize) -> Result<(), ErrorCode> {
+            // Copy image to the inactive partition
+            let mut boot_config = FlashBootConfig::new();
+            let inactive_partition_id = boot_config
+                .get_inactive_partition()
+                .await
+                .map_err(|_| ErrorCode::Fail)?;
+            let inactive_partition = boot_config
+                .get_partition_from_id(inactive_partition_id)
+                .map_err(|_| ErrorCode::Fail)?;
+
+            crate::log_info!(
+                Console::<DefaultSyscalls>::writer(),
+                "[FW Upd] Copying image from staging to inactive partition {} length {}",
+                crate::Dbg(inactive_partition_id),
+                img_sz
+            );
+            // Mark inactive partittion as invalid
+            boot_config
+                .set_partition_status(inactive_partition_id, PartitionStatus::Invalid)
+                .await
+                .map_err(|_| ErrorCode::Fail)?;
+
+            // Copy the image from staging partition to inactive partition
+            let mut buffer: [u8; 256] = [0; 256];
+            let mut bytes_copied = 0;
+            let inactive_flash_syscall =
+                FlashSyscall::<DefaultSyscalls>::new(inactive_partition.driver_num);
+            while bytes_copied < img_sz {
+                let chunk_size = (img_sz - bytes_copied).min(buffer.len());
+                self.flash_syscall
+                    .read(bytes_copied, chunk_size, &mut buffer[..chunk_size])
+                    .await?;
+                inactive_flash_syscall
+                    .write(bytes_copied, chunk_size, &buffer[..chunk_size])
+                    .await?;
+                bytes_copied += chunk_size;
+            }
+
+            // Mark inactive partition as valid
+            boot_config
+                .set_partition_status(inactive_partition_id, PartitionStatus::Valid)
+                .await
+                .map_err(|_| ErrorCode::Fail)?;
+            Ok(())
+        }
+
+        fn size(&self) -> usize {
+            self.flash_syscall
+                .get_capacity()
+                .unwrap_or(FlashCapacity(0))
+                .0 as usize
+        }
+    }
+
+    impl Debug for ExternalFlash {
+        fn fmt(&self, _f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+            Ok(())
+        }
+    }
+}
