@@ -2,6 +2,7 @@
 #![no_std]
 
 pub mod aspeed_dramc;
+pub mod aspeed_hyperram;
 pub mod aspeed_ipc;
 pub mod aspeed_otp;
 pub mod aspeed_soc;
