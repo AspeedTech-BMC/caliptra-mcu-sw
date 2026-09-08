@@ -379,6 +379,13 @@ pub unsafe fn main() {
     caliptra_mcu_romtime::set_printer(&mut crate::io::RUNTIME_WRITER);
     // #[allow(static_mut_refs)]
     // caliptra_mcu_romtime::set_exiter(&mut EMULATOR_EXITER);
+
+    caliptra_mcu_romtime::println!(
+        "\n[mcu-runtime] {} ({})",
+        env!("MCU_GIT_VERSION"),
+        env!("MCU_BUILD_TIMESTAMP")
+    );
+
     // Read handoff table BEFORE PMP setup.
     let handoff = HandOff::new();
     if let Some(ref ho) = handoff {
