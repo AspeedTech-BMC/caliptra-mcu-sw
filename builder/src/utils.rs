@@ -25,6 +25,8 @@ const EMU_BARE_METAL_MANIFEST: &str = "firmware-bundler/reference/emulator/bare-
 const FPGA_BARE_METAL_MANIFEST: &str = "firmware-bundler/reference/fpga/bare-metal.toml";
 const AST2705_EXAMPLE_APP_MANIFEST: &str = "firmware-bundler/reference/ast2705/example-app.toml";
 const AST2705_USER_APP_MANIFEST: &str = "firmware-bundler/reference/ast2705/user-app.toml";
+const AST1040_EXAMPLE_APP_MANIFEST: &str = "firmware-bundler/reference/ast1040/example-app.toml";
+const AST1040_USER_APP_MANIFEST: &str = "firmware-bundler/reference/ast1040/user-app.toml";
 
 pub fn manifest_file(platform: Option<&str>, example_app: bool) -> Result<PathBuf> {
     manifest_file_for_profile(platform, example_app, None)
@@ -63,9 +65,16 @@ pub fn manifest_file_for_profile(
             } else {
                 AST2705_USER_APP_MANIFEST
             }
+        },
+        Some("ast1040") => {
+            if example_app {
+                AST1040_EXAMPLE_APP_MANIFEST
+            } else {
+                AST1040_USER_APP_MANIFEST
+            }
         }
         _ => bail!(
-            "Invalid platform {platform:?}, supported options are 'emulator', 'fpga' or 'ast2705'"
+            "Invalid platform {platform:?}, supported options are 'emulator', 'fpga', 'ast1040' or 'ast2705'"
         ),
     };
 

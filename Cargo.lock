@@ -229,6 +229,61 @@ dependencies = [
 ]
 
 [[package]]
+name = "ast1040-user-app"
+version = "0.1.0"
+dependencies = [
+ "arrayvec",
+ "async-trait",
+ "caliptra-api",
+ "caliptra-image-types",
+ "caliptra-mcu-attestation-evidence",
+ "caliptra-mcu-common-commands",
+ "caliptra-mcu-config",
+ "caliptra-mcu-config-ast1040",
+ "caliptra-mcu-flash-image",
+ "caliptra-mcu-libapi-ast1040-caliptra",
+ "caliptra-mcu-libapi-caliptra",
+ "caliptra-mcu-libsyscall-caliptra",
+ "caliptra-mcu-libtock",
+ "caliptra-mcu-libtock_console",
+ "caliptra-mcu-libtock_low_level_debug",
+ "caliptra-mcu-libtock_platform",
+ "caliptra-mcu-libtock_runtime",
+ "caliptra-mcu-libtock_unittest",
+ "caliptra-mcu-libtockasync",
+ "caliptra-mcu-mbox-common",
+ "caliptra-mcu-mbox-lib",
+ "caliptra-mcu-mctp-vdm-common",
+ "caliptra-mcu-mctp-vdm-lib",
+ "caliptra-mcu-measurement-api",
+ "caliptra-mcu-pldm-common",
+ "caliptra-mcu-pldm-lib",
+ "caliptra-mcu-registers-generated",
+ "caliptra-mcu-romtime",
+ "caliptra-mcu-runtime-userspace-error",
+ "caliptra-mcu-scratch-alloc",
+ "caliptra-mcu-spdm-codec",
+ "caliptra-mcu-spdm-pal",
+ "caliptra-mcu-spdm-stack",
+ "caliptra-mcu-spdm-traits",
+ "caliptra-mcu-spdm-transports",
+ "caliptra-mcu-spdm-vdm-handler",
+ "caliptra-mcu-userlog",
+ "constant_time_eq 0.4.2",
+ "critical-section",
+ "defmt",
+ "embassy-executor",
+ "embassy-sync",
+ "embedded-alloc",
+ "mcu-caliptra-api",
+ "portable-atomic",
+ "serde",
+ "static_cell",
+ "toml 0.8.23",
+ "zerocopy",
+]
+
+[[package]]
 name = "ast2705-user-app"
 version = "0.1.0"
 dependencies = [
@@ -1119,6 +1174,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "caliptra-mcu-capsules-ast1040"
+version = "0.1.0"
+dependencies = [
+ "bitfield",
+ "caliptra-mcu-capsules-runtime",
+ "caliptra-mcu-flash-driver",
+ "caliptra-mcu-platforms-common",
+ "caliptra-mcu-registers-generated",
+ "kernel",
+]
+
+[[package]]
 name = "caliptra-mcu-capsules-ast2705"
 version = "0.1.0"
 dependencies = [
@@ -1236,6 +1303,14 @@ version = "0.1.0"
 dependencies = [
  "bitflags 2.13.0",
  "caliptra-mcu-registers-generated",
+]
+
+[[package]]
+name = "caliptra-mcu-config-ast1040"
+version = "0.1.0"
+dependencies = [
+ "caliptra-mcu-config",
+ "zerocopy",
 ]
 
 [[package]]
@@ -1633,6 +1708,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "caliptra-mcu-flash-ctrl-ast1040"
+version = "0.1.0"
+dependencies = [
+ "caliptra-mcu-registers-generated",
+ "caliptra-mcu-romtime",
+ "capsules-core",
+ "kernel",
+ "registers-peripherals",
+]
+
+[[package]]
 name = "caliptra-mcu-flash-ctrl-ast2705"
 version = "0.1.0"
 dependencies = [
@@ -1795,6 +1881,21 @@ dependencies = [
 name = "caliptra-mcu-image-header"
 version = "0.1.0"
 dependencies = [
+ "zerocopy",
+]
+
+[[package]]
+name = "caliptra-mcu-libapi-ast1040-caliptra"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "caliptra-mcu-config",
+ "caliptra-mcu-config-ast1040",
+ "caliptra-mcu-libapi-caliptra",
+ "caliptra-mcu-libsyscall-caliptra",
+ "caliptra-mcu-libtock_platform",
+ "embassy-executor",
+ "embedded-alloc",
  "zerocopy",
 ]
 
@@ -5642,6 +5743,46 @@ dependencies = [
  "embassy-executor",
  "embassy-sync",
  "zerocopy",
+]
+
+[[package]]
+name = "mcu-runtime-ast1040"
+version = "0.1.0"
+dependencies = [
+ "arrayvec",
+ "caliptra-mcu-aspeed-ipc",
+ "caliptra-mcu-aspeed-soc",
+ "caliptra-mcu-capsules-ast1040",
+ "caliptra-mcu-capsules-emulator",
+ "caliptra-mcu-capsules-runtime",
+ "caliptra-mcu-components",
+ "caliptra-mcu-config",
+ "caliptra-mcu-config-ast1040",
+ "caliptra-mcu-dma-common",
+ "caliptra-mcu-dma-driver",
+ "caliptra-mcu-doe-mbox-driver",
+ "caliptra-mcu-doe-transport",
+ "caliptra-mcu-external-otp-driver",
+ "caliptra-mcu-external-otp-emulator",
+ "caliptra-mcu-flash-ctrl-ast1040",
+ "caliptra-mcu-flash-driver",
+ "caliptra-mcu-i3c-driver",
+ "caliptra-mcu-mbox-comm",
+ "caliptra-mcu-mbox-driver",
+ "caliptra-mcu-platforms-common",
+ "caliptra-mcu-registers-generated",
+ "caliptra-mcu-romtime",
+ "caliptra-mcu-tock-veer",
+ "capsules-core",
+ "capsules-extra",
+ "capsules-system",
+ "components",
+ "kernel",
+ "registers-peripherals",
+ "riscv 0.2.2",
+ "riscv-csr",
+ "rv32i",
+ "tock-registers",
 ]
 
 [[package]]

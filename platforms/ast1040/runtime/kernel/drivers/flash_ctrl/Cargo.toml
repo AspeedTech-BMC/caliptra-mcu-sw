@@ -1,0 +1,14 @@
+# Licensed under the Apache-2.0 license
+
+[package]
+name = "caliptra-mcu-flash-ctrl-ast1040"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+
+[dependencies]
+capsules-core.workspace = true
+kernel.workspace = true
+caliptra-mcu-registers-generated.workspace = true
+caliptra-mcu-romtime.workspace = true
+registers-peripherals.workspace = true
