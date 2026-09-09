@@ -39,6 +39,10 @@ function check-commit-title {
     commit_id=$1
     commit_title=$(git log -1 --format='%s' $commit_id)
     allowed_prefixes=(
+        "ast1040: drivers: "
+        "ast1040: capsules: "
+        "ast1040: app: "
+        "ast1040: "
         "ast2705: drivers: "
         "ast2705: capsules: "
         "ast2705: app: "
