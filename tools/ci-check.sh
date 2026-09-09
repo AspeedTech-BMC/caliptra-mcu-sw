@@ -24,6 +24,10 @@ function ci-check-commit-list {
     git log --reverse --format='%H' "${base_commit}..HEAD"
 }
 
+function ci-check-head-commit-list {
+    git log -1 --format='%H' HEAD
+}
+
 function check-format {
     echo -ne "[${MODULE}] check caliptra-mcu-sw coding style..."
 
@@ -168,6 +172,12 @@ function check-multi-item {
 MODULE="SS-PRE-CI"
 DIR="$(dirname "$(realpath "$0")")"
 CPTRA_MCU_DIR=$DIR/../
+FULL_CHECK=0
+
+# Check parameter
+if [[ "${1:-}" == "--full" ]]; then
+    FULL_CHECK=1
+fi
 
 ##########################################################
 # Main Flow
@@ -177,8 +187,13 @@ result=0
 pushd .
 cd $CPTRA_MCU_DIR
 
-# Get all checked commit list
-commit_list=$(ci-check-commit-list)
+# Get all checked commit list: HEAD only by default, or the full range
+# of commits ahead of origin with --full.
+if [[ $FULL_CHECK -eq 1 ]]; then
+    commit_list=$(ci-check-commit-list)
+else
+    commit_list=$(ci-check-head-commit-list)
+fi
 
 # Check coding style
 check-item check-format || result=1
