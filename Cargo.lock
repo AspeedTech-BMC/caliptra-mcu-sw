@@ -1697,11 +1697,13 @@ dependencies = [
 name = "caliptra-mcu-flash-ctrl-ast2705"
 version = "0.1.0"
 dependencies = [
+ "caliptra-mcu-aspeed-soc",
  "caliptra-mcu-registers-generated",
  "caliptra-mcu-romtime",
  "capsules-core",
  "kernel",
  "registers-peripherals",
+ "tock-registers",
 ]
 
 [[package]]
