@@ -99,14 +99,14 @@ pub struct Ast2705Peripherals<'a> {
     pub spi1_cs0_flash_ctrl: caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashCtrl<'a>,
     pub spi2_cs0_flash_ctrl: caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashCtrl<'a>,
     pub spi2_cs1_flash_ctrl: caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashCtrl<'a>,
-    pub dma: caliptra_mcu_dma_driver::axicdma::AxiCDMA<'a, InternalTimers<'a>>,
+    pub dma: caliptra_mcu_dma_common::nodma::NoDMA,
     #[cfg(any(feature = "doe", feature = "test-doe-transport-loopback"))]
     pub doe_transport: caliptra_mcu_doe_mbox_driver::EmulatedDoeTransport<'a, InternalTimers<'a>>,
 }
 
 impl<'a> Ast2705Peripherals<'a> {
     #[allow(static_mut_refs)]
-    pub fn new(alarm: &'a MuxAlarm<'a, InternalTimers<'a>>) -> Self {
+    pub fn new(_alarm: &'a MuxAlarm<'a, InternalTimers<'a>>) -> Self {
         Self {
             soc: caliptra_mcu_aspeed_soc::AspeedSoCCtrl::new(ASPEED_SOC_BASE),
             scu0: caliptra_mcu_scu_ast2705::AspeedScuCtrl::new(ASPEED_SCU0_BASE),
@@ -273,15 +273,11 @@ impl<'a> Ast2705Peripherals<'a> {
                 },
                 unsafe { &mut SPI2_CS1_ERASE_SCRATCH },
             ),
-            dma: caliptra_mcu_dma_driver::axicdma::AxiCDMA::new(
-                caliptra_mcu_dma_driver::axicdma::DMA_CTRL_BASE,
-                false,
-                Some(alarm),
-            ),
+            dma: caliptra_mcu_dma_common::nodma::NoDMA::new(),
             #[cfg(any(feature = "doe", feature = "test-doe-transport-loopback"))]
             doe_transport: caliptra_mcu_doe_mbox_driver::EmulatedDoeTransport::new(
                 caliptra_mcu_doe_mbox_driver::DOE_MBOX_BASE,
-                alarm,
+                _alarm,
             ),
         }
     }
@@ -324,5 +320,7 @@ impl<'a> Ast2705Peripherals<'a> {
             pcie1_alt: false,
         };
         pci_init(&pci_cfg);
+
+        kernel::deferred_call::DeferredCallClient::register(&self.dma);
     }
 }

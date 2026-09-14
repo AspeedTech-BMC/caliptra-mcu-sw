@@ -15,7 +15,6 @@ capsules-system.workspace = true
 components.workspace = true
 caliptra-mcu-doe-transport = { workspace = true, optional = true }
 caliptra-mcu-doe-mbox-driver = { workspace = true, optional = true }
-caliptra-mcu-dma-driver.workspace = true
 caliptra-mcu-external-otp-driver.workspace = true
 caliptra-mcu-external-otp-emulator.workspace = true
 caliptra-mcu-flash-driver.workspace = true

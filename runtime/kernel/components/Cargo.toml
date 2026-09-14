@@ -13,7 +13,6 @@ capsules-extra.workspace = true
 caliptra-mcu-capsules-runtime.workspace = true
 capsules-system.workspace = true
 components.workspace = true
-caliptra-mcu-dma-driver.workspace = true
 caliptra-mcu-doe-transport.workspace = true
 caliptra-mcu-external-otp-driver.workspace = true
 caliptra-mcu-flash-driver.workspace = true

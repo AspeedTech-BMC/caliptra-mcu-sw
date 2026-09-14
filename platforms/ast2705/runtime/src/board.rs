@@ -513,7 +513,7 @@ pub unsafe fn main() {
         execute: false,
     });
 
-    // AXICDMA
+    // Aspeed's Peripheral region
     platform_regions.push(PlatformRegion {
         start_addr: 0x3000_0000 as *const u8,
         size: 0x0800_0000,
@@ -594,13 +594,10 @@ pub unsafe fn main() {
     hil::time::Alarm::set_alarm_client(virtual_alarm_user, alarm);
 
     let mbox_dma_driver = static_init!(
-        caliptra_mcu_dma_driver::axicdma::AxiCDMA<'static, InternalTimers<'static>>,
-        caliptra_mcu_dma_driver::axicdma::AxiCDMA::new(
-            caliptra_mcu_dma_driver::axicdma::DMA_CTRL_BASE,
-            false,
-            None,
-        )
+        caliptra_mcu_dma_common::nodma::NoDMA,
+        caliptra_mcu_dma_common::nodma::NoDMA::new()
     );
+    kernel::deferred_call::DeferredCallClient::register(mbox_dma_driver);
     let mbox_staging_addr = if cfg!(feature = "hw-2-1") {
         Some(MCU_MEMORY_MAP.staging_sram_offset as u64)
     } else {
@@ -993,17 +990,8 @@ pub unsafe fn main() {
         true
     );
 
-    // No usable AxiDMA on this platform: back the DMA syscall with the
-    // CPU-copy engine (same HAL; swap back to &ast1040_peri.dma when a
-    // hardware DMA engine is available).
-    let nodma = static_init!(
-        caliptra_mcu_dma_common::nodma::NoDMA,
-        caliptra_mcu_dma_common::nodma::NoDMA::new()
-    );
-    kernel::deferred_call::DeferredCallClient::register(nodma);
-
     let dma = caliptra_mcu_components::dma::DmaComponent::new(
-        nodma,
+        &ast2705_peripherals.dma,
         board_kernel,
         caliptra_mcu_capsules_runtime::dma::driver::DMA_CTRL_DRIVER_NUM,
     )
