@@ -206,7 +206,7 @@ struct VeeR {
         VirtualMuxAlarm<'static, InternalTimers<'static>>,
     >,
     caliptra: &'static caliptra_mcu_capsules_runtime::caliptra::Caliptra,
-    dma: &'static caliptra_mcu_capsules_emulator::dma::Dma<'static>,
+    dma: &'static caliptra_mcu_capsules_runtime::dma::driver::Dma<'static>,
     #[cfg(feature = "userspace-log")]
     logging_flash: [Option<
         &'static caliptra_mcu_capsules_runtime::logging::driver::LoggingFlashDriver<'static>,
@@ -265,7 +265,7 @@ impl SyscallDriverLookup for VeeR {
             }
             caliptra_mcu_capsules_runtime::mailbox::DRIVER_NUM => f(Some(self.mailbox)),
             caliptra_mcu_capsules_runtime::caliptra::DRIVER_NUM => f(Some(self.caliptra)),
-            caliptra_mcu_capsules_emulator::dma::DMA_CTRL_DRIVER_NUM => f(Some(self.dma)),
+            caliptra_mcu_capsules_runtime::dma::driver::DMA_CTRL_DRIVER_NUM => f(Some(self.dma)),
             caliptra_mcu_capsules_runtime::mci::DRIVER_NUM => f(Some(self.mci)),
             #[cfg(any(feature = "flash-boot", feature = "firmware-update"))]
             caliptra_mcu_config_ast1040::flash::DRIVER_NUM_START
@@ -998,10 +998,10 @@ pub unsafe fn main() {
     let dma = caliptra_mcu_components::dma::DmaComponent::new(
         nodma,
         board_kernel,
-        caliptra_mcu_capsules_emulator::dma::DMA_CTRL_DRIVER_NUM,
+        caliptra_mcu_capsules_runtime::dma::driver::DMA_CTRL_DRIVER_NUM,
     )
     .finalize(kernel::static_buf!(
-        caliptra_mcu_capsules_emulator::dma::Dma<'static>
+        caliptra_mcu_capsules_runtime::dma::driver::Dma<'static>
     ));
 
     // ExternalOTP: Async flash-backed implementation using the primary flash mux.

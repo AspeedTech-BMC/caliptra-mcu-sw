@@ -142,8 +142,6 @@ members = [
     "platforms/ast2705/runtime/kernel/drivers/sli",
     "platforms/ast2705/runtime/kernel/drivers/usb",
     "platforms/ast2705/runtime/kernel/drivers/vga",
-    "platforms/ast1040/runtime/kernel/capsules",
-    "platforms/ast2705/runtime/kernel/capsules",
     "platforms/ast1040/runtime/userspace/apps/user",
     "platforms/ast2705/runtime/userspace/apps/user",
     "registers/generated-peripherals",
@@ -480,8 +478,6 @@ tock-registers = { git = "https://github.com/tock/tock.git", rev = "release-2.2"
 caliptra-mcu-dma-common = { path = "runtime/kernel/drivers/dma" }
 caliptra-mcu-aspeed-ipc = { path = "runtime/kernel/drivers/ipc" }
 caliptra-mcu-aspeed-soc = { path = "runtime/kernel/drivers/soc" }
-caliptra-mcu-capsules-ast1040 = { path = "platforms/ast1040/runtime/kernel/capsules" }
-caliptra-mcu-capsules-ast2705 = { path = "platforms/ast2705/runtime/kernel/capsules" }
 caliptra-mcu-config-ast1040 = { path = "platforms/ast1040/config" }
 caliptra-mcu-config-ast2705 = { path = "platforms/ast2705/config" }
 caliptra-mcu-libapi-ast1040-caliptra = { path = "platforms/ast1040/runtime/userspace/api/caliptra-api" }

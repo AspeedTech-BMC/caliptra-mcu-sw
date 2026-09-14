@@ -1174,30 +1174,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "caliptra-mcu-capsules-ast1040"
-version = "0.1.0"
-dependencies = [
- "bitfield",
- "caliptra-mcu-capsules-runtime",
- "caliptra-mcu-flash-driver",
- "caliptra-mcu-platforms-common",
- "caliptra-mcu-registers-generated",
- "kernel",
-]
-
-[[package]]
-name = "caliptra-mcu-capsules-ast2705"
-version = "0.1.0"
-dependencies = [
- "bitfield",
- "caliptra-mcu-capsules-runtime",
- "caliptra-mcu-flash-driver",
- "caliptra-mcu-platforms-common",
- "caliptra-mcu-registers-generated",
- "kernel",
-]
-
-[[package]]
 name = "caliptra-mcu-capsules-emulator"
 version = "0.1.0"
 dependencies = [
@@ -1276,7 +1252,6 @@ name = "caliptra-mcu-components"
 version = "0.1.0"
 dependencies = [
  "arrayvec",
- "caliptra-mcu-capsules-emulator",
  "caliptra-mcu-capsules-runtime",
  "caliptra-mcu-config",
  "caliptra-mcu-dma-driver",
@@ -5775,8 +5750,6 @@ dependencies = [
  "arrayvec",
  "caliptra-mcu-aspeed-ipc",
  "caliptra-mcu-aspeed-soc",
- "caliptra-mcu-capsules-ast1040",
- "caliptra-mcu-capsules-emulator",
  "caliptra-mcu-capsules-runtime",
  "caliptra-mcu-components",
  "caliptra-mcu-config",
@@ -5817,8 +5790,6 @@ dependencies = [
  "arrayvec",
  "caliptra-mcu-aspeed-ipc",
  "caliptra-mcu-aspeed-soc",
- "caliptra-mcu-capsules-ast2705",
- "caliptra-mcu-capsules-emulator",
  "caliptra-mcu-capsules-runtime",
  "caliptra-mcu-components",
  "caliptra-mcu-config",

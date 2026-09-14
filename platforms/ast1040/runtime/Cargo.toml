@@ -9,7 +9,6 @@ edition.workspace = true
 [dependencies]
 arrayvec.workspace = true
 capsules-core.workspace = true
-caliptra-mcu-capsules-emulator.workspace = true
 capsules-extra.workspace = true
 caliptra-mcu-capsules-runtime.workspace = true
 capsules-system.workspace = true
@@ -40,7 +39,6 @@ rv32i.workspace = true
 # Aspeed dependencies
 caliptra-mcu-aspeed-ipc.workspace = true
 caliptra-mcu-aspeed-soc.workspace = true
-caliptra-mcu-capsules-ast1040.workspace = true
 caliptra-mcu-config-ast1040.workspace = true
 caliptra-mcu-dma-common.workspace = true
 caliptra-mcu-flash-ctrl-ast1040.workspace = true
