@@ -4,10 +4,12 @@
 
 use caliptra_mcu_capsules_runtime::bootdev::hil::{KernelImageClient, KernelImageLoader};
 use kernel::utilities::cells::OptionalCell;
-use kernel::utilities::registers::interfaces::Writeable;
+use kernel::utilities::registers::interfaces::{ReadWriteable, Writeable};
+use kernel::utilities::registers::Field;
 use kernel::utilities::StaticRef;
 use kernel::ErrorCode;
 use registers_peripherals::ast2705::aspeed_scu0::SCU0Registers;
+use registers_peripherals::ast2705::aspeed_scu1::{PinMux, Rst1, SCU1Registers};
 
 /// Image type for CA35 U-Boot — the last CA35 image before CPU release.
 const CA35_UBOOT: u32 = 0x100A;
@@ -64,6 +66,67 @@ impl KernelImageClient for AspeedScuCtrl {
             self.loader.map(|loader| {
                 loader.notify_init_done(image_id, true);
             });
+        }
+    }
+}
+
+// SCU1 (SPI pinmux/reset), separate from AspeedScuCtrl above (SCU0).
+
+#[derive(Clone, Copy)]
+pub enum ScuSignal {
+    Spi0Quad,
+    Spi1Quad,
+    Spi2Quad,
+}
+
+#[derive(Clone, Copy)]
+pub enum ScuReset {
+    Spi2,
+}
+
+pub struct AspeedScu1Ctrl {
+    reg: StaticRef<SCU1Registers>,
+}
+
+impl AspeedScu1Ctrl {
+    pub const fn new(base: StaticRef<SCU1Registers>) -> Self {
+        Self { reg: base }
+    }
+
+    /// Route the SCU1 pinmux pads needed for `sig`.
+    pub fn pinmux_apply(&self, sig: ScuSignal) {
+        match sig {
+            ScuSignal::Spi0Quad => {
+                // Group N: CLK, MOSI (DQ0), MISO (DQ1), DQ2, DQ3, CS1
+                for pin in 0..6 {
+                    self.reg
+                        .pinmux_n
+                        .modify(Field::<u32, PinMux::Register>::new(0x7, pin * 4).val(1));
+                }
+            }
+            ScuSignal::Spi1Quad => {
+                // Group O: CLK, MOSI (DQ0), MISO (DQ1), DQ2, DQ3, CS1
+                for pin in 0..6 {
+                    self.reg
+                        .pinmux_o
+                        .modify(Field::<u32, PinMux::Register>::new(0x7, pin * 4).val(1));
+                }
+            }
+            ScuSignal::Spi2Quad => {
+                // Group P: CS0, CLK, MOSI (DQ0), MISO (DQ1), DQ2, DQ3, CS1
+                for pin in 0..7 {
+                    self.reg
+                        .pinmux_p
+                        .modify(Field::<u32, PinMux::Register>::new(0x7, pin * 4).val(1));
+                }
+            }
+        }
+    }
+
+    /// Deassert the reset line for `id`.
+    pub fn reset_deassert(&self, id: ScuReset) {
+        match id {
+            ScuReset::Spi2 => self.reg.rstctl1_clr.set(Rst1::SPI2::SET.value),
         }
     }
 }
