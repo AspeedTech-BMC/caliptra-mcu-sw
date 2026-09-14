@@ -2,7 +2,7 @@
 
 #![no_std]
 
-use kernel::utilities::registers::interfaces::Writeable;
+use kernel::utilities::registers::interfaces::{Readable, Writeable};
 use kernel::utilities::StaticRef;
 use registers_peripherals::aspeed_soc::{AhbMsbOffset, LsuMbusMap, MbusMsbOffset, SoCRegisters};
 
@@ -37,5 +37,40 @@ impl AspeedSoCCtrl {
                 + LsuMbusMap::MsbLsuMbusMap2.val(msb2 as u32)
                 + LsuMbusMap::MsbLsuMbusMap3.val(msb3 as u32),
         );
+    }
+}
+
+/// Borrows/restores the shared AHBC aperture for controllers with no dedicated window (e.g. SPI0/1/2).
+pub trait AhbWindowGate {
+    fn engage(&self) -> u8;
+    fn restore(&self, prev: u8);
+}
+
+/// `AhbWindowGate` over the SoC's `ahb_msb_offset` register.
+#[derive(Clone, Copy)]
+pub struct AhbApertureGate {
+    reg: StaticRef<SoCRegisters>,
+    target: u8,
+}
+
+impl AhbApertureGate {
+    pub const fn new(reg: StaticRef<SoCRegisters>, target: u8) -> Self {
+        Self { reg, target }
+    }
+}
+
+impl AhbWindowGate for AhbApertureGate {
+    fn engage(&self) -> u8 {
+        let prev = self.reg.ahb_msb_offset.read(AhbMsbOffset::MsbOffset0) as u8;
+        self.reg
+            .ahb_msb_offset
+            .write(AhbMsbOffset::MsbOffset0.val(self.target as u32));
+        prev
+    }
+
+    fn restore(&self, prev: u8) {
+        self.reg
+            .ahb_msb_offset
+            .write(AhbMsbOffset::MsbOffset0.val(prev as u32));
     }
 }
