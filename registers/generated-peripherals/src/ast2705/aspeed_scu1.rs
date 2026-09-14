@@ -55,9 +55,12 @@ register_structs! {
         (0x03F0 => pub cptra_mci_generic_input_wire0: ReadWrite<u32, MCIInputWire0::Register>),
         (0x03F4 => pub cptra_mci_generic_input_wire1: ReadWrite<u32>),
         (0x03F8 => _reserved3f8),
+        /// PinMux Group N
+        (0x0434 => pub pinmux_n: ReadWrite<u32, PinMux::Register>),
         /// PinMux Group O
         (0x0438 => pub pinmux_o: ReadWrite<u32, PinMux::Register>),
-        (0x043C => _reserved43c),
+        /// PinMux Group P
+        (0x043C => pub pinmux_p: ReadWrite<u32, PinMux::Register>),
         /// PinMux Group Q
         (0x0440 => pub pinmux_q: ReadWrite<u32, PinMux::Register>),
         /// PinMux Group R
@@ -144,6 +147,8 @@ pub Rst1 [
     MAC1  OFFSET(6) NUMBITS(1) [],
     /// Reset bit for XGMAC
     MAC2  OFFSET(7) NUMBITS(1) [],
+    /// Reset bit for SPI2
+    SPI2  OFFSET(15) NUMBITS(1) [],
 ],
 
 /// Reset Control/Clear 2
