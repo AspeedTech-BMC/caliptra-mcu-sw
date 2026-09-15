@@ -14,7 +14,7 @@ caliptra-mcu-capsules-runtime.workspace = true
 capsules-system.workspace = true
 components.workspace = true
 caliptra-mcu-doe-transport = { workspace = true, optional = true }
-caliptra-mcu-doe-mbox-driver = { workspace = true, optional = true }
+caliptra-mcu-doe-mbox-driver-ast2705 = { workspace = true, optional = true }
 caliptra-mcu-external-otp-driver.workspace = true
 caliptra-mcu-external-otp-emulator.workspace = true
 caliptra-mcu-flash-driver.workspace = true
@@ -23,7 +23,7 @@ kernel.workspace = true
 caliptra-mcu-components.workspace = true
 caliptra-mcu-config.workspace = true
 caliptra-mcu-mbox-comm.workspace = true
-caliptra-mcu-mbox-driver.workspace = true
+caliptra-mcu-mbox-driver-ast2705.workspace = true
 caliptra-mcu-platforms-common.workspace = true
 caliptra-mcu-tock-veer.workspace = true
 caliptra-mcu-registers-generated.workspace = true
@@ -77,7 +77,7 @@ mctp-vdm-service = []
 doe = [
 	"spdm",
 	"dep:caliptra-mcu-doe-transport",
-	"dep:caliptra-mcu-doe-mbox-driver",
+	"dep:caliptra-mcu-doe-mbox-driver-ast2705",
 ]
 userspace-log = []
 debug = []
@@ -107,7 +107,7 @@ test-do-nothing = []
 test-dma = []
 test-doe-transport-loopback = [
 	"dep:caliptra-mcu-doe-transport",
-	"dep:caliptra-mcu-doe-mbox-driver",
+	"dep:caliptra-mcu-doe-mbox-driver-ast2705",
 ]
 test-doe-discovery = ["doe"]
 test-doe-user-loopback = ["doe"]

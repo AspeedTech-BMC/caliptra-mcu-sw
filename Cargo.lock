@@ -1408,6 +1408,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "caliptra-mcu-doe-mbox-driver-ast2705"
+version = "0.1.0"
+dependencies = [
+ "caliptra-mcu-doe-transport",
+ "caliptra-mcu-registers-generated",
+ "capsules-core",
+ "kernel",
+]
+
+[[package]]
 name = "caliptra-mcu-doe-transport"
 version = "0.1.0"
 dependencies = [
@@ -2134,6 +2144,17 @@ dependencies = [
 
 [[package]]
 name = "caliptra-mcu-mbox-driver"
+version = "0.1.0"
+dependencies = [
+ "caliptra-mcu-mbox-comm",
+ "caliptra-mcu-registers-generated",
+ "caliptra-mcu-romtime",
+ "capsules-core",
+ "kernel",
+]
+
+[[package]]
+name = "caliptra-mcu-mbox-driver-ast2705"
 version = "0.1.0"
 dependencies = [
  "caliptra-mcu-mbox-comm",
@@ -5796,7 +5817,7 @@ dependencies = [
  "caliptra-mcu-config",
  "caliptra-mcu-config-ast2705",
  "caliptra-mcu-dma-common",
- "caliptra-mcu-doe-mbox-driver",
+ "caliptra-mcu-doe-mbox-driver-ast2705",
  "caliptra-mcu-doe-transport",
  "caliptra-mcu-dp-ast2705",
  "caliptra-mcu-dramc-ast2705",
@@ -5806,7 +5827,7 @@ dependencies = [
  "caliptra-mcu-flash-driver",
  "caliptra-mcu-i3c-driver",
  "caliptra-mcu-mbox-comm",
- "caliptra-mcu-mbox-driver",
+ "caliptra-mcu-mbox-driver-ast2705",
  "caliptra-mcu-platforms-common",
  "caliptra-mcu-registers-generated",
  "caliptra-mcu-romtime",

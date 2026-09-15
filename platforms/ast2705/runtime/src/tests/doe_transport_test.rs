@@ -3,7 +3,7 @@
 // Test DOE MBOX driver: send data and ensure it is written back.
 
 use crate::AST2705_PERIPHERALS;
-use caliptra_mcu_doe_mbox_driver::EmulatedDoeTransport;
+use caliptra_mcu_doe_mbox_driver_ast2705::EmulatedDoeTransport;
 use caliptra_mcu_doe_transport::hil::{DoeTransport, DoeTransportRxClient, DoeTransportTxClient};
 use caliptra_mcu_romtime::println;
 use caliptra_mcu_tock_veer::timers::InternalTimers;

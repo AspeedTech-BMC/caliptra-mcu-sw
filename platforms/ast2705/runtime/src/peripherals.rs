@@ -101,7 +101,8 @@ pub struct Ast2705Peripherals<'a> {
     pub spi2_cs1_flash_ctrl: caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashCtrl<'a>,
     pub dma: caliptra_mcu_dma_common::nodma::NoDMA,
     #[cfg(any(feature = "doe", feature = "test-doe-transport-loopback"))]
-    pub doe_transport: caliptra_mcu_doe_mbox_driver::EmulatedDoeTransport<'a, InternalTimers<'a>>,
+    pub doe_transport:
+        caliptra_mcu_doe_mbox_driver_ast2705::EmulatedDoeTransport<'a, InternalTimers<'a>>,
 }
 
 impl<'a> Ast2705Peripherals<'a> {
@@ -275,8 +276,8 @@ impl<'a> Ast2705Peripherals<'a> {
             ),
             dma: caliptra_mcu_dma_common::nodma::NoDMA::new(),
             #[cfg(any(feature = "doe", feature = "test-doe-transport-loopback"))]
-            doe_transport: caliptra_mcu_doe_mbox_driver::EmulatedDoeTransport::new(
-                caliptra_mcu_doe_mbox_driver::DOE_MBOX_BASE,
+            doe_transport: caliptra_mcu_doe_mbox_driver_ast2705::EmulatedDoeTransport::new(
+                caliptra_mcu_doe_mbox_driver_ast2705::DOE_MBOX_BASE,
                 _alarm,
             ),
         }

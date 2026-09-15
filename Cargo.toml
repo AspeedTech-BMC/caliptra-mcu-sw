@@ -480,13 +480,15 @@ caliptra-mcu-aspeed-ipc = { path = "runtime/kernel/drivers/ipc" }
 caliptra-mcu-aspeed-soc = { path = "runtime/kernel/drivers/soc" }
 caliptra-mcu-config-ast1040 = { path = "platforms/ast1040/config" }
 caliptra-mcu-config-ast2705 = { path = "platforms/ast2705/config" }
-caliptra-mcu-libapi-ast1040-caliptra = { path = "platforms/ast1040/runtime/userspace/api/caliptra-api" }
-caliptra-mcu-libapi-ast2705-caliptra = { path = "platforms/ast2705/runtime/userspace/api/caliptra-api" }
+caliptra-mcu-doe-mbox-driver-ast2705 = { path = "platforms/ast2705/runtime/kernel/drivers/doe_mbox" }
 caliptra-mcu-dp-ast2705 = { path = "platforms/ast2705/runtime/kernel/drivers/dp" }
 caliptra-mcu-dramc-ast2705 = { path = "platforms/ast2705/runtime/kernel/drivers/dramc" }
 caliptra-mcu-flash-ctrl-ast1040 = { path = "platforms/ast1040/runtime/kernel/drivers/flash_ctrl"}
 caliptra-mcu-flash-ctrl-ast2705 = { path = "platforms/ast2705/runtime/kernel/drivers/flash_ctrl"}
 caliptra-mcu-hyperram-ast1040 = { path = "platforms/ast1040/runtime/kernel/drivers/hyperram" }
+caliptra-mcu-libapi-ast1040-caliptra = { path = "platforms/ast1040/runtime/userspace/api/caliptra-api" }
+caliptra-mcu-libapi-ast2705-caliptra = { path = "platforms/ast2705/runtime/userspace/api/caliptra-api" }
+caliptra-mcu-mbox-driver-ast2705 = { path = "platforms/ast2705/runtime/kernel/drivers/mcu_mbox" }
 caliptra-mcu-scu-ast1040 = { path = "platforms/ast1040/runtime/kernel/drivers/scu" }
 caliptra-mcu-scu-ast2705 = { path = "platforms/ast2705/runtime/kernel/drivers/scu" }
 caliptra-mcu-sli-ast2705 = { path = "platforms/ast2705/runtime/kernel/drivers/sli" }
