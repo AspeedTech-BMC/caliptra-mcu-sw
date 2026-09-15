@@ -44,9 +44,13 @@ impl AspeedScuCtrl {
         self.reg.psp_rvbar2.set(boot_addr);
         self.reg.psp_rvbar3.set(boot_addr);
 
-        // SMP 0 entry point configure
-        self.reg.cpu_smp_ep_lo.set(ep as u32);
-        self.reg.cpu_smp_ep_hi.set((ep >> 32) as u32);
+        // Clear SMP 1/2/3 entry point
+        self.reg.cpu_smp_ep1.set(0);
+        self.reg.cpu_smp_ep2.set(0);
+        self.reg.cpu_smp_ep3.set(0);
+
+        // Configure SMP 0 entry point
+        self.reg.cpu_smp_ep0.set(ep);
 
         self.reg.ca35_release.set(1);
     }

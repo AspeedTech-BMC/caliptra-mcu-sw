@@ -47,11 +47,15 @@ register_structs! {
         /// VGA function control register — bits [9:8] select active VGA port
         (0x0414 => pub vga_func_ctrl: ReadWrite<u32, VgaFuncCtrl::Register>),
         (0x0418 => _reserved418),
-        /// CPU SMP entry point lower 32 bits
-        (0x0780 => pub cpu_smp_ep_lo: ReadWrite<u32>),
-        /// CPU SMP entry point upper 32 bits
-        (0x0784 => pub cpu_smp_ep_hi: ReadWrite<u32>),
-        (0x0788 => _reserved788),
+        /// CPU SMP entry point 0 64 bits
+        (0x0780 => pub cpu_smp_ep0: ReadWrite<u64>),
+        /// CPU SMP entry point 1 64 bits
+        (0x0788 => pub cpu_smp_ep1: ReadWrite<u64>),
+        /// CPU SMP entry point 2 64 bits
+        (0x0790 => pub cpu_smp_ep2: ReadWrite<u64>),
+        /// CPU SMP entry point 3 64 bits
+        (0x0798 => pub cpu_smp_ep3: ReadWrite<u64>),
+        (0x07a0 => _reserved7a0),
         /// SLI SLIM US delay window for lanes 0/1 (cpu_scratch[28], offset 0x7F0)
         /// bits [7:0]=lane-0 first, [15:8]=lane-0 last, [23:16]=lane-1 first, [31:24]=lane-1 last
         (0x07f0 => pub sli_slim_us_win_low: ReadWrite<u32>),
