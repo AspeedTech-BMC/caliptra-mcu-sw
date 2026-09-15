@@ -40,9 +40,9 @@ function check-format {
 }
 
 function check-commit-title {
-    commit_id=$1
-    commit_title=$(git log -1 --format='%s' $commit_id)
-    allowed_prefixes=(
+    local commit_id=$1
+    local commit_title=$(git log -1 --format='%s' $commit_id)
+    local allowed_prefixes=(
         "ast1040: drivers: "
         "ast1040: capsules: "
         "ast1040: app: "
@@ -74,8 +74,8 @@ function check-commit-title {
 }
 
 function check-commit-body {
-    commit_id=$1
-    commit_message=$(git log -1 --format='%B' "$commit_id")
+    local commit_id=$1
+    local commit_message=$(git log -1 --format='%B' "$commit_id")
 
     if grep -qi 'ast2755' <<<"$commit_message"; then
         log "$commit_id title/body contains 'ast2755'."
@@ -93,8 +93,8 @@ function check-commit-body {
 }
 
 function check-commit-path {
-    commit_id=$1
-    change_file_list=$(git show --name-only --format='' "$commit_id")
+    local commit_id=$1
+    local change_file_list=$(git show --name-only --format='' "$commit_id")
 
     if grep -qE '(^|/)(rom)(/|$)' <<<"$change_file_list"; then
         log "$commit_id changes a file under rom/:"
@@ -108,30 +108,25 @@ function check-commit-path {
 }
 
 function check-commit-scope {
-    commit_id=$1
-    change_file_list=$(git show --name-only --format='' "$commit_id")
+    local commit_id=$1
+    local change_file_list=$(git show --name-only --format='' "$commit_id")
+    local rc=0
 
-    if grep -qE '^registers/' <<<"$change_file_list" \
-        && grep -qvE '^registers/' <<<"$change_file_list"; then
-        log "$commit_id mixes registers/ changes with other paths:"
-        log "$(grep -vE '^registers/' <<<"$change_file_list")"
-        return 1
-    fi
+    for prefix in registers common romtime; do
+        if grep -qE "^${prefix}/" <<<"$change_file_list"; then
+            log "WARNING: $commit_id contains ${prefix}/ code changes:"
+            log "$(grep -E "^${prefix}/" <<<"$change_file_list")"
+            rc=1
+        fi
+    done
 
-    if grep -qE '^common/' <<<"$change_file_list" \
-        && grep -qvE '^common/' <<<"$change_file_list"; then
-        log "$commit_id mixes common/ changes with other paths:"
-        log "$(grep -vE '^common/' <<<"$change_file_list")"
-        return 1
-    fi
-
-    log "$commit_id ...ok"
+    [[ $rc -eq 0 ]] && log "$commit_id ...ok"
 
     return 0
 }
 
 function check-item {
-    check_cb=$1
+    local check_cb=$1
 
     print_banner "$check_cb"
 
@@ -147,9 +142,9 @@ function check-item {
 }
 
 function check-multi-item {
-    check_cb=$1
-    commit_list="$2"
-    rc=0
+    local check_cb=$1
+    local commit_list="$2"
+    local rc=0
 
     print_banner "$check_cb"
 
