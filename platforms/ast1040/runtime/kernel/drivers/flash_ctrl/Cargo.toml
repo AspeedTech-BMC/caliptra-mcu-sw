@@ -7,8 +7,10 @@ authors.workspace = true
 edition.workspace = true
 
 [dependencies]
+caliptra-mcu-aspeed-soc.workspace = true
 capsules-core.workspace = true
 kernel.workspace = true
 caliptra-mcu-registers-generated.workspace = true
 caliptra-mcu-romtime.workspace = true
 registers-peripherals.workspace = true
+tock-registers.workspace = true

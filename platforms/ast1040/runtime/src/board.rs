@@ -659,6 +659,10 @@ pub unsafe fn main() {
 
     kernel::deferred_call::DeferredCallClient::register(&ast1040_peripherals.primary_flash_ctrl);
     kernel::deferred_call::DeferredCallClient::register(&ast1040_peripherals.secondary_flash_ctrl);
+    kernel::deferred_call::DeferredCallClient::register(&ast1040_peripherals.spi0_cs0_flash_ctrl);
+    kernel::deferred_call::DeferredCallClient::register(&ast1040_peripherals.spi0_cs1_flash_ctrl);
+    kernel::deferred_call::DeferredCallClient::register(&ast1040_peripherals.spi1_cs0_flash_ctrl);
+    kernel::deferred_call::DeferredCallClient::register(&ast1040_peripherals.spi1_cs1_flash_ctrl);
     kernel::deferred_call::DeferredCallClient::register(&ast1040_peripherals.uart);
 
     // Create muxes for the two physical flash controllers; shared by the
