@@ -16,7 +16,7 @@ components.workspace = true
 caliptra-mcu-doe-transport = { workspace = true, optional = true }
 caliptra-mcu-doe-mbox-driver-ast2705 = { workspace = true, optional = true }
 caliptra-mcu-external-otp-driver.workspace = true
-caliptra-mcu-external-otp-emulator.workspace = true
+caliptra-mcu-external-otp-ast2705.workspace = true
 caliptra-mcu-flash-driver.workspace = true
 caliptra-mcu-i3c-driver.workspace = true
 kernel.workspace = true

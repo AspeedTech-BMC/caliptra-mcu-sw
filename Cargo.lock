@@ -1658,6 +1658,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "caliptra-mcu-external-otp-ast2705"
+version = "0.1.0"
+dependencies = [
+ "caliptra-mcu-external-otp-driver",
+ "caliptra-mcu-flash-driver",
+ "kernel",
+]
+
+[[package]]
 name = "caliptra-mcu-external-otp-driver"
 version = "0.1.0"
 dependencies = [
@@ -5821,8 +5830,8 @@ dependencies = [
  "caliptra-mcu-doe-transport",
  "caliptra-mcu-dp-ast2705",
  "caliptra-mcu-dramc-ast2705",
+ "caliptra-mcu-external-otp-ast2705",
  "caliptra-mcu-external-otp-driver",
- "caliptra-mcu-external-otp-emulator",
  "caliptra-mcu-flash-ctrl-ast2705",
  "caliptra-mcu-flash-driver",
  "caliptra-mcu-i3c-driver",

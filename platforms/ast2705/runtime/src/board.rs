@@ -1005,8 +1005,8 @@ pub unsafe fn main() {
     // ExternalOTP: Async flash-backed implementation using the primary flash mux.
     // OTP data is stored in the EMULATED_EXT_OTP_PARTITION region of primary flash,
     // accessed through a dedicated FlashUser to avoid register conflicts.
+    use caliptra_mcu_external_otp_ast2705::ext_flash_otp::ExtFlashBackedExternalOtp;
     use caliptra_mcu_external_otp_driver::hil::ExternalOtpPartitionInfo;
-    use caliptra_mcu_external_otp_emulator::ext_flash_otp::ExtFlashBackedExternalOtp;
 
     const EXTERNAL_OTP_PARTITIONS: &[ExternalOtpPartitionInfo] = &[
         ExternalOtpPartitionInfo {
