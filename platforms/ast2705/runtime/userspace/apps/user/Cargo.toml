@@ -83,6 +83,7 @@ all-features = [
   "doe",
   "userspace-log",
   "mctp-vdm-service",
+	"mcu-mbox-service",
 ]
 spdm = ["mcu-mbox-service"]
 streaming-boot = []
@@ -138,8 +139,9 @@ userspace-log = [
 # private dependency build of `caliptra-mcu-romtime`.
 release = [
   "userspace-log",
-    "caliptra-mcu-romtime/no-print",
-    "caliptra-mcu-libsyscall-caliptra/release",
+  "caliptra-mcu-romtime/no-print",
+  "caliptra-mcu-libsyscall-caliptra/release",
+  "mcu-mbox-service",
 ]
 # --- Test features: example-app ---
 test-caliptra-certs = []
