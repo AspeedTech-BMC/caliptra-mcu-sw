@@ -1219,6 +1219,9 @@ pub unsafe fn main() {
         unsafe { StaticRef::new(MCU_MEMORY_MAP.mci_offset as *const mci::regs::Mci) };
     let mci_wdt = caliptra_mcu_romtime::Mci::new(mci);
     mci_wdt.disable_wdt();
+    // Caliptra SS MCI global interrupt enable (block-level gate for all
+    // Notification-class events, e.g. mailbox command available).
+    mci_wdt.enable_notif_interrupts();
 
     mci_wdt.set_flow_milestone(McuBootMilestones::FIRMWARE_OS_INITIALIZED.into());
     board_kernel.kernel_loop(veer, chip, None::<&kernel::ipc::IPC<0>>, &main_loop_cap);

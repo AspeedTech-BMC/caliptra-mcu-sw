@@ -64,6 +64,7 @@ all-features = [
 	"doe",
 	"userspace-log",
 	"mctp-vdm-service",
+	"mcu-mbox-service",
 ]
 spdm = ["mcu-mbox-service"]
 streaming-boot = []
@@ -91,6 +92,7 @@ dot-spdm-vdm = []
 release = [
 	"userspace-log",
 	"kernel/no_debug_panics",
+	"mcu-mbox-service",
 ]
 hw-2-1 = []
 ocp-lock = [
