@@ -121,6 +121,9 @@ impl CommandId {
     pub const MC_ECDSA384_SIG_VERIFY: Self = Self(0x4D45_4356); // "MECV"
     pub const MC_LMS_SIG_VERIFY: Self = Self(0x4D4C_4D56); // "MLMV"
 
+    // Temporary local addition; to be reconciled with upstream once available there.
+    pub const MC_MLDSA87_SIG_VERIFY: Self = Self(0x4D4D_5356); // "MMSV"
+
     // MLDSA CMK commands (MML prefix avoids collision with MC_FUSE_INCREASE_CALIPTRA_MIN_SVN "MCMS")
     pub const MC_MLDSA_CMK_PUBLIC_KEY: Self = Self(0x4D4D_4C50); // "MMLP"
     pub const MC_MLDSA_CMK_SIGN: Self = Self(0x4D4D_4C53); // "MMLS"
