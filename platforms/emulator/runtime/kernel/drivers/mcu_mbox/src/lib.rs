@@ -133,6 +133,31 @@ impl<'a, A: Alarm<'a>> McuMailbox<'a, A> {
         }
     }
 
+    /// Ensures mbox0 is reachable over AXI even when nothing else has
+    /// configured a valid AXI user for it.
+    ///
+    /// ROM is expected to program and lock the real AXI user(s) allowed to
+    /// access mbox0 (see `configure_mcu_mbox_axi_users`) before handing off
+    /// to the runtime. If none of the AXI-user-lock slots ended up locked —
+    /// e.g. because the fuse-driven user list is still unconfigured on this
+    /// SoC — mbox0 would otherwise be left with whatever the valid-AXI-user
+    /// register defaults to, which can make it unreachable. As a fallback,
+    /// allow AXI user 0 and lock it so mbox0 is at least usable. This is a
+    /// no-op wherever ROM already locked a slot, so it never overrides a
+    /// legitimate ROM-configured user.
+    fn ensure_axi_user_configured(&self) {
+        let mci = caliptra_mcu_romtime::Mci::new(self.registers);
+        let any_locked =
+            (0..mci.mbox_axi_user_len()).any(|i| mci.read_mbox0_axi_user_lock(i).unwrap_or(false));
+        if any_locked {
+            debug!("MCU_MBOX_DRIVER: mbox0 AXI user already locked by ROM, skipping fallback");
+        } else {
+            debug!("MCU_MBOX_DRIVER: no mbox0 AXI user locked, falling back to user 0");
+            mci.write_mbox0_valid_axi_user(0, 0x0000_0000);
+            mci.lock_mbox0_axi_user(0);
+        }
+    }
+
     fn enable_interrupts(&self) {
         self.registers
             .intr_block_rf_notif0_intr_en_r
@@ -239,6 +264,7 @@ impl<'a, A: Alarm<'a>> Mailbox<'a> for McuMailbox<'a, A> {
     }
 
     fn enable(&self) {
+        self.ensure_axi_user_configured();
         self.enable_interrupts();
     }
 
