@@ -35,16 +35,16 @@ pub struct IoState {
 // Create flash callback struct for testing
 struct FlashCtrlTestCallBack {
     io_state: RefCell<IoState>,
-    read_in_page: TakeCell<'static, flash_ctrl_ast2705::Ast2705FlashPage>,
-    write_in_page: TakeCell<'static, flash_ctrl_ast2705::Ast2705FlashPage>,
+    read_in_page: TakeCell<'static, caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashPage>,
+    write_in_page: TakeCell<'static, caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashPage>,
     read_out_buf: TakeCell<'static, [u8]>,
     write_out_buf: TakeCell<'static, [u8]>,
 }
 
-impl<'a> FlashCtrlTestCallBack {
+impl FlashCtrlTestCallBack {
     pub fn new(
-        read_in_page: &'static mut flash_ctrl_ast2705::Ast2705FlashPage,
-        write_in_page: &'static mut flash_ctrl_ast2705::Ast2705FlashPage,
+        read_in_page: &'static mut caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashPage,
+        write_in_page: &'static mut caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashPage,
     ) -> Self {
         Self {
             io_state: RefCell::new(IoState {
@@ -70,10 +70,10 @@ impl<'a> FlashCtrlTestCallBack {
     }
 }
 
-impl<'a, F: hil::flash::Flash> hil::flash::Client<F> for FlashCtrlTestCallBack {
+impl<F: hil::flash::Flash> hil::flash::Client<F> for FlashCtrlTestCallBack {
     fn read_complete(&self, page: &'static mut F::Page, error: Result<(), hil::flash::Error>) {
         if self.io_state.borrow().read_pending {
-            if let Err(_) = error {
+            if error.is_err() {
                 self.io_state.borrow_mut().op_error = true;
             } else {
                 self.read_out_buf.replace(page.as_mut());
@@ -84,7 +84,7 @@ impl<'a, F: hil::flash::Flash> hil::flash::Client<F> for FlashCtrlTestCallBack {
 
     fn write_complete(&self, page: &'static mut F::Page, error: Result<(), hil::flash::Error>) {
         if self.io_state.borrow().write_pending {
-            if let Err(_) = error {
+            if error.is_err() {
                 self.io_state.borrow_mut().op_error = true;
             } else {
                 self.write_out_buf.replace(page.as_mut());
@@ -95,7 +95,7 @@ impl<'a, F: hil::flash::Flash> hil::flash::Client<F> for FlashCtrlTestCallBack {
 
     fn erase_complete(&self, error: Result<(), hil::flash::Error>) {
         if self.io_state.borrow().erase_pending {
-            if let Err(_) = error {
+            if error.is_err() {
                 self.io_state.borrow_mut().op_error = true;
             }
             self.io_state.borrow_mut().erase_pending = false;
@@ -106,15 +106,15 @@ impl<'a, F: hil::flash::Flash> hil::flash::Client<F> for FlashCtrlTestCallBack {
 macro_rules! static_init_test {
     () => {{
         let r_in_page = static_init!(
-            flash_ctrl_ast2705::Ast2705FlashPage,
-            flash_ctrl_ast2705::Ast2705FlashPage::default()
+            caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashPage,
+            caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashPage::default()
         );
         let w_in_page = static_init!(
-            flash_ctrl_ast2705::Ast2705FlashPage,
-            flash_ctrl_ast2705::Ast2705FlashPage::default()
+            caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashPage,
+            caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashPage::default()
         );
         let mut val: u8 = 0;
-        for i in 0..flash_ctrl_ast2705::PAGE_SIZE {
+        for i in 0..caliptra_mcu_flash_ctrl_ast2705::PAGE_SIZE {
             val = val.wrapping_add(0x10);
             r_in_page[i] = 0x00;
             // Fill the write buffer with arbitrary data
@@ -128,7 +128,7 @@ macro_rules! static_init_test {
 }
 
 fn test_single_flash_ctrl_erase_page(
-    flash_ctrl: &'static flash_ctrl_ast2705::Ast2705FlashCtrl,
+    flash_ctrl: &'static caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashCtrl,
     test_cb: &'static FlashCtrlTestCallBack,
 ) {
     flash_ctrl.set_client(test_cb);
@@ -176,13 +176,22 @@ pub fn test_flash_ctrl_erase_page() -> Option<u32> {
 }
 
 fn test_single_flash_ctrl_read_write_page(
-    flash_ctrl: &'static flash_ctrl_ast2705::Ast2705FlashCtrl,
+    flash_ctrl: &'static caliptra_mcu_flash_ctrl_ast2705::Ast2705FlashCtrl,
     test_cb: &'static FlashCtrlTestCallBack,
 ) {
     flash_ctrl.set_client(test_cb);
     test_cb.reset();
 
     let page_num: usize = 20;
+
+    // PROGRAM only clears bits (1 -> 0); erase first so stale data can't corrupt the write.
+    assert!(flash_ctrl.erase_page(page_num).is_ok());
+    test_cb.io_state.borrow_mut().erase_pending = true;
+    #[cfg(feature = "test-flash-ctrl-read-write-page")]
+    run_kernel_op(100);
+    assert!(!test_cb.io_state.borrow().erase_pending);
+    test_cb.reset();
+
     let write_in_page = test_cb.write_in_page.take().unwrap();
     assert!(flash_ctrl.write_page(page_num, write_in_page).is_ok());
     test_cb.io_state.borrow_mut().write_pending = true;
@@ -192,7 +201,7 @@ fn test_single_flash_ctrl_read_write_page(
     run_kernel_op(100);
 
     // Check if the write operation is completed
-    assert_eq!(test_cb.io_state.borrow().write_pending, false);
+    assert!(!test_cb.io_state.borrow().write_pending);
 
     test_cb.reset();
 
@@ -205,7 +214,7 @@ fn test_single_flash_ctrl_read_write_page(
     run_kernel_op(100);
 
     // Check if the read operation is completed
-    assert_eq!(test_cb.io_state.borrow().read_pending, false);
+    assert!(!test_cb.io_state.borrow().read_pending);
 
     // Compare the contents of read/write buffer
     let write_in = test_cb.write_out_buf.take().unwrap();
