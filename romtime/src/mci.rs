@@ -120,6 +120,18 @@ impl Mci {
         self.registers.mci_reg_wdt_timer1_en.set(0); // Timer1En CLEAR
     }
 
+    /// Enables the MCI block's global "Notification"-class interrupt path
+    /// (`NotifEn`). This is the block-level gate for whether MCI asserts its
+    /// interrupt line for notification events (e.g. mailbox command
+    /// available) at all — distinct from, and required in addition to, the
+    /// CPU-side PIC mask and any per-source enable (e.g. the mailbox
+    /// driver's `NotifMbox0CmdAvailEn`).
+    pub fn enable_notif_interrupts(&self) {
+        self.registers
+            .intr_block_rf_global_intr_en_r
+            .modify(mci::bits::GlobalIntrEnT::NotifEn::SET);
+    }
+
     /// Read the reset reason register value
     pub fn reset_reason(&self) -> u32 {
         self.registers.mci_reg_reset_reason.get()
