@@ -57,7 +57,6 @@ members = [
     "platforms/emulator/runtime/kernel/drivers/dma",
     "platforms/emulator/runtime/kernel/drivers/doe_mbox",
     "platforms/emulator/runtime/kernel/drivers/external_otp",
-    "platforms/emulator/runtime/kernel/drivers/mcu_mbox",
     "platforms/emulator/runtime/userspace/api/caliptra-api",
     "platforms/emulator/runtime/userspace/apps/example",
     "platforms/emulator/runtime/userspace/apps/user",
@@ -85,6 +84,7 @@ members = [
     "runtime/kernel/drivers/doe",
     "runtime/kernel/drivers/external_otp",
     "runtime/kernel/drivers/i3c",
+    "runtime/kernel/drivers/mcu_mailbox",
     "runtime/kernel/drivers/mcu_mbox",
     "runtime/kernel/veer",
     "runtime/userspace/api/caliptra-libapi",
@@ -320,7 +320,7 @@ caliptra-mcu-test-fw-usb-responder = { path = "hw/model/test-fw/usb-responder" }
 caliptra-mcu-image-header = { path = "platforms/emulator/mcu-image-header" }
 caliptra-mcu-mbox-comm = { path = "runtime/kernel/drivers/mcu_mbox" }
 caliptra-mcu-mbox-common = { path = "common/mcu-mbox" }
-caliptra-mcu-mbox-driver = { path = "platforms/emulator/runtime/kernel/drivers/mcu_mbox" }
+caliptra-mcu-mbox-driver = { path = "runtime/kernel/drivers/mcu_mailbox" }
 caliptra-mcu-otp-fuse = { path = "common/otp-fuse" }
 caliptra-mcu-otp-lifecycle = { path = "common/otp-lifecycle" }
 caliptra-mcu-platforms-common = { path = "platforms/common" }
@@ -490,7 +490,6 @@ caliptra-mcu-flash-ctrl-ast2705 = { path = "platforms/ast2705/runtime/kernel/dri
 caliptra-mcu-hyperram-ast1040 = { path = "platforms/ast1040/runtime/kernel/drivers/hyperram" }
 caliptra-mcu-libapi-ast1040-caliptra = { path = "platforms/ast1040/runtime/userspace/api/caliptra-api" }
 caliptra-mcu-libapi-ast2705-caliptra = { path = "platforms/ast2705/runtime/userspace/api/caliptra-api" }
-caliptra-mcu-mbox-driver-ast2705 = { path = "platforms/ast2705/runtime/kernel/drivers/mcu_mbox" }
 caliptra-mcu-scu-ast1040 = { path = "platforms/ast1040/runtime/kernel/drivers/scu" }
 caliptra-mcu-scu-ast2705 = { path = "platforms/ast2705/runtime/kernel/drivers/scu" }
 caliptra-mcu-sli-ast2705 = { path = "platforms/ast2705/runtime/kernel/drivers/sli" }

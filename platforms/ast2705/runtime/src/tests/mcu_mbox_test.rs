@@ -2,7 +2,7 @@
 
 use crate::run_kernel_op;
 use caliptra_mcu_mbox_comm::hil::{Mailbox, MailboxClient, MailboxStatus};
-use caliptra_mcu_mbox_driver_ast2705::McuMailbox;
+use caliptra_mcu_mbox_driver::McuMailbox;
 use caliptra_mcu_registers_generated::mci;
 use caliptra_mcu_romtime::println;
 use caliptra_mcu_tock_veer::timers::InternalTimers;

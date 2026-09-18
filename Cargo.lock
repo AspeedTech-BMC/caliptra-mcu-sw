@@ -2165,17 +2165,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "caliptra-mcu-mbox-driver-ast2705"
-version = "0.1.0"
-dependencies = [
- "caliptra-mcu-mbox-comm",
- "caliptra-mcu-registers-generated",
- "caliptra-mcu-romtime",
- "capsules-core",
- "kernel",
-]
-
-[[package]]
 name = "caliptra-mcu-mbox-lib"
 version = "0.1.0"
 dependencies = [
@@ -5838,7 +5827,7 @@ dependencies = [
  "caliptra-mcu-flash-driver",
  "caliptra-mcu-i3c-driver",
  "caliptra-mcu-mbox-comm",
- "caliptra-mcu-mbox-driver-ast2705",
+ "caliptra-mcu-mbox-driver",
  "caliptra-mcu-platforms-common",
  "caliptra-mcu-registers-generated",
  "caliptra-mcu-romtime",

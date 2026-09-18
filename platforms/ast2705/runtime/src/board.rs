@@ -214,7 +214,7 @@ struct VeeR {
     #[cfg(feature = "mcu-mbox-service")]
     mcu_mbox0: &'static caliptra_mcu_capsules_runtime::mcu_mbox::McuMboxDriver<
         'static,
-        caliptra_mcu_mbox_driver_ast2705::McuMailbox<'static, InternalTimers<'static>>,
+        caliptra_mcu_mbox_driver::McuMailbox<'static, InternalTimers<'static>>,
     >,
     mcu_mbox1_staging_sram: &'static caliptra_mcu_capsules_runtime::mbox_sram::MboxSram<
         'static,
@@ -772,7 +772,7 @@ pub unsafe fn main() {
         board_kernel,
         caliptra_mcu_capsules_runtime::mbox_sram::DRIVER_NUM_MCU_MBOX1_SRAM,
         core::slice::from_raw_parts_mut(
-            (MCU_MEMORY_MAP.mci_offset + caliptra_mcu_mbox_driver_ast2705::MCU_MBOX1_SRAM_OFFSET)
+            (MCU_MEMORY_MAP.mci_offset + caliptra_mcu_mbox_driver::MCU_MBOX1_SRAM_OFFSET)
                 as *mut u32,
             1024 * 1024, // Allocate 1MB
         ),
@@ -1107,7 +1107,7 @@ pub unsafe fn main() {
         &peripherals.mcu_mbox0,
     )
     .finalize(mcu_mbox_component_static!(
-        caliptra_mcu_mbox_driver_ast2705::McuMailbox<'static, InternalTimers<'static>>
+        caliptra_mcu_mbox_driver::McuMailbox<'static, InternalTimers<'static>>
     ));
 
     // Enable only the PIC lines the kernel actually services: the
