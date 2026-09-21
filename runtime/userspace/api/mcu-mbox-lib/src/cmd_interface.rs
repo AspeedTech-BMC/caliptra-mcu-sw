@@ -20,10 +20,10 @@ use caliptra_mcu_mbox_common::messages::{
     GetAuthCmdChallengeReq, GetAuthCmdChallengeResp, GetDpeCertChainReq, GetLogReq, LogType,
     MailboxReqHeader, MailboxRespHeader, MailboxRespHeaderVarSize, McuFeProgReq, McuMailboxReq,
     McuMailboxResp, McuProdDebugUnlockReqReq, McuProdDebugUnlockReqResp,
-    McuProdDebugUnlockTokenReq, McuResponseVarSize, ProvisionOwnerPkHashReq,
-    ProvisionOwnerPkHashResp, ProvisionVendorPkHashReq, ProvisionVendorPkHashResp,
-    DEVICE_CAPS_SIZE, GET_ATTESTATION_RESP_PREFIX_LEN, MAX_FUSE_DATA_SIZE, MAX_FW_VERSION_STR_LEN,
-    MAX_RESP_DATA_SIZE,
+    McuProdDebugUnlockTokenReq, McuResponseVarSize, McuShaAccInitResp, McuShaFinalResp,
+    ProvisionOwnerPkHashReq, ProvisionOwnerPkHashResp, ProvisionVendorPkHashReq,
+    ProvisionVendorPkHashResp, DEVICE_CAPS_SIZE, GET_ATTESTATION_RESP_PREFIX_LEN,
+    MAX_FUSE_DATA_SIZE, MAX_FW_VERSION_STR_LEN, MAX_RESP_DATA_SIZE,
 };
 
 use caliptra_mcu_libtock_console::Console;
@@ -46,7 +46,7 @@ use caliptra_mcu_mbox_common::messages::{
     McuFipsPeriodicStatusResp,
 };
 use caliptra_mcu_otp_fuse::fuse_read_dai_params;
-use caliptra_mcu_userlog::{log_info, Hex32};
+use caliptra_mcu_userlog::{log_error, Hex32};
 
 #[allow(unused_imports)]
 use core::fmt::Write;
@@ -158,7 +158,12 @@ impl<'a, H: CaliptraCmdHandler, A: CommandAuthorizer, Alloc: McuMboxScratch>
         let mut req_buf = self.scratch.alloc(size_of::<McuMailboxReq>())?;
         let (cmd_id, req_len) = match self.transport.receive_request(&mut req_buf).await {
             Ok((c, slice)) => (c, slice.len()),
-            Err(_) => {
+            Err(e) => {
+                log_error!(
+                    Console::<DefaultSyscalls>::writer(),
+                    "[mcu-mbox] receive_request err={}",
+                    Hex32(u32::from(e))
+                );
                 let _ = self.transport.finalize_response(MbxCmdStatus::Failure);
                 return Err(errors::TRANSPORT_ERROR);
             }
@@ -179,14 +184,27 @@ impl<'a, H: CaliptraCmdHandler, A: CommandAuthorizer, Alloc: McuMboxScratch>
 
                     populate_response_checksum(resp)?;
 
-                    self.transport.send_response(resp).await.map_err(|_| {
+                    self.transport.send_response(resp).await.map_err(|e| {
+                        log_error!(
+                            Console::<DefaultSyscalls>::writer(),
+                            "[mcu-mbox] send_response err={}",
+                            Hex32(u32::from(e))
+                        );
                         let _ = self.transport.finalize_response(MbxCmdStatus::Failure);
                         errors::TRANSPORT_ERROR
                     })?;
                 }
                 status
             }
-            Err(_) => MbxCmdStatus::Failure,
+            Err(e) => {
+                log_error!(
+                    Console::<DefaultSyscalls>::writer(),
+                    "[mcu-mbox] process_request cmd=0x{} err={}",
+                    Hex32(cmd_id),
+                    Hex32(u32::from(e))
+                );
+                MbxCmdStatus::Failure
+            }
         };
 
         self.transport
@@ -210,12 +228,15 @@ impl<'a, H: CaliptraCmdHandler, A: CommandAuthorizer, Alloc: McuMboxScratch>
         self.busy.store(true, Ordering::SeqCst);
 
         let cmd_id = CommandId::from(cmd);
-        log_info!(
-            Console::<DefaultSyscalls>::writer(),
-            "MCU mailbox command called: 0x{}",
-            Hex32(cmd)
-        );
-        let result = if let Some(caliptra_cmd) = caliptra_passthrough_cmd(cmd_id) {
+        let result = if cmd_id == CommandId::MC_SHA_ACC_INIT
+            || cmd_id == CommandId::MC_SHA_ACC_UPDATE
+            || cmd_id == CommandId::MC_SHA_ACC_FINAL
+        {
+            // SHA_ACC commands require address remapping before forwarding to
+            // Caliptra; handle them before the generic passthrough check.
+            self.handle_sha_acc(cmd_id, req_buf, req_len, resp_buf)
+                .await
+        } else if let Some(caliptra_cmd) = caliptra_passthrough_cmd(cmd_id) {
             self.handle_crypto_passthrough(req_buf, req_len, caliptra_cmd, resp_buf)
                 .await
         } else {
@@ -1074,6 +1095,80 @@ impl<'a, H: CaliptraCmdHandler, A: CommandAuthorizer, Alloc: McuMboxScratch>
         Ok((&mut resp_buf[..len], MbxCmdStatus::Complete))
     }
 
+    async fn handle_sha_acc<'r>(
+        &mut self,
+        cmd_id: CommandId,
+        req_buf: &mut [u8],
+        req_len: usize,
+        resp_buf: &'r mut [u8],
+    ) -> McuResult<(&'r mut [u8], MbxCmdStatus)> {
+        // INIT:          [hdr: 4B][hash_algorithm: 4B][data_size: 4B][addr_lo: 4B][addr_hi: 4B]
+        // UPDATE/FINAL:  [hdr: 4B][data_size: 4B][addr_lo: 4B][addr_hi: 4B]
+        let (addr_lo_off, addr_hi_off) = match cmd_id {
+            CommandId::MC_SHA_ACC_INIT => (12usize, 16usize),
+            _ => (8usize, 12usize),
+        };
+
+        // data_size sits immediately before addr_lo in every variant.
+        let data_size_off = addr_lo_off - 4;
+
+        if req_len < addr_hi_off + 4 {
+            return Err(errors::INVALID_PARAMS);
+        }
+
+        let data_size = u32::from_le_bytes(
+            req_buf[data_size_off..data_size_off + 4]
+                .try_into()
+                .unwrap(),
+        );
+        let mut addr_lo =
+            u32::from_le_bytes(req_buf[addr_lo_off..addr_lo_off + 4].try_into().unwrap());
+        let mut addr_hi =
+            u32::from_le_bytes(req_buf[addr_hi_off..addr_hi_off + 4].try_into().unwrap());
+
+        // FINAL with data_size == 0 means "finalise only, no new data" — skip
+        // address remapping entirely since Caliptra will not perform a DMA read.
+        let remap_msb = if cmd_id == CommandId::MC_SHA_ACC_FINAL && data_size == 0 {
+            None
+        } else {
+            let msb = sha_acc_remap_addr(&mut addr_lo, &mut addr_hi, data_size)?;
+            req_buf[addr_lo_off..addr_lo_off + 4].copy_from_slice(&addr_lo.to_le_bytes());
+            req_buf[addr_hi_off..addr_hi_off + 4].copy_from_slice(&addr_hi.to_le_bytes());
+            msb
+        };
+
+        // Each command independently writes the AHBC MSB register for its chunk.
+        if let Some(msb) = remap_msb {
+            unsafe {
+                let reg = SHA_ACC_AHBC_MSB_REG as *mut u32;
+                let cur = reg.read_volatile();
+                reg.write_volatile((cur & !0xFF) | (msb as u32));
+            }
+        }
+
+        let caliptra_cmd = match cmd_id {
+            CommandId::MC_SHA_ACC_INIT => 0x434D_4E49u32, // CM_SHA_ACC_INIT  "CMNI"
+            CommandId::MC_SHA_ACC_UPDATE => 0x434D_4E55u32, // CM_SHA_ACC_UPDATE "CMNU"
+            CommandId::MC_SHA_ACC_FINAL => 0x434D_4E46u32, // CM_SHA_ACC_FINAL  "CMNF"
+            _ => return Err(errors::UNSUPPORTED_COMMAND),
+        };
+
+        let result = self
+            .handle_crypto_passthrough(req_buf, req_len, caliptra_cmd, resp_buf)
+            .await;
+
+        // Clear AHBC MSB register after FINAL mailbox completes.
+        if cmd_id == CommandId::MC_SHA_ACC_FINAL {
+            unsafe {
+                let reg = SHA_ACC_AHBC_MSB_REG as *mut u32;
+                let cur = reg.read_volatile();
+                reg.write_volatile(cur & !0xFF);
+            }
+        }
+
+        result
+    }
+
     pub async fn handle_crypto_passthrough<'r>(
         &mut self,
         req_buf: &mut [u8],
@@ -1640,6 +1735,46 @@ impl<'a, H: CaliptraCmdHandler, A: CommandAuthorizer, Alloc: McuMboxScratch>
 }
 
 /// Map an MCU mailbox `CommandId` to the Caliptra mailbox command code for
+/// AHBC MSB register: bits [7:0] route Caliptra AXI DMA to the correct SPI controller.
+const SHA_ACC_AHBC_MSB_REG: usize = 0x1000_0090;
+
+/// Remap a raw AXI address for CM_SHA_ACC DMA before forwarding to Caliptra.
+///
+/// Returns `Ok(Some(msb))` when AHBC MSB routing is needed:
+///   `Some(0x00)` for FMC (clears any stale value), `Some(msb)` for AHBC SPI windows.
+/// Returns `Ok(None)` when no remapping is needed (e.g. HyperRAM at 0xf000_0000).
+/// Returns `Err` when the range [offset, offset+data_size) exceeds the 32 MB AHBC window.
+fn sha_acc_remap_addr(
+    addr_lo: &mut u32,
+    addr_hi: &mut u32,
+    data_size: u32,
+) -> McuResult<Option<u8>> {
+    let full: u64 = ((*addr_hi as u64) << 32) | (*addr_lo as u64);
+    let msb = ((full >> 28) & 0xFF) as u8;
+    match msb {
+        0x02 => {
+            // FMC: rebase to 0x4000_0000 (fixed hardware route).
+            // Return Some(0x00) so FINAL clears any stale AHBC MSB.
+            let offset = full & 0x0FFF_FFFF;
+            *addr_lo = 0x4000_0000 | (offset as u32);
+            *addr_hi = 0;
+            Ok(Some(0x00u8))
+        }
+        0x04 | 0x06 | 0x18 | 0x20 | 0x28 => {
+            // AHBC shared window: rebase to 0x3000_0000, record MSB for FINAL.
+            let offset = full & 0x0FFF_FFFF;
+            if offset + (data_size as u64) > 0x200_0000 {
+                return Err(errors::INVALID_PARAMS);
+            }
+            *addr_lo = 0x3000_0000 | (offset as u32);
+            *addr_hi = 0;
+            Ok(Some(msb))
+        }
+        _ => Ok(None),
+    }
+}
+
+/// Map an MCU mailbox `CommandId` to the Caliptra mailbox command code for
 /// pure passthrough commands. Returns `None` for commands handled locally.
 fn caliptra_passthrough_cmd(cmd: CommandId) -> Option<u32> {
     let code = match cmd {
@@ -1697,6 +1832,12 @@ fn response_buffer_size<H: CaliptraCmdHandler>(cmd: u32) -> usize {
         c if c == CommandId::MC_MLDSA_CMK_VERIFY || c == CommandId::MC_PROD_DEBUG_UNLOCK_TOKEN => {
             size_of::<MailboxRespHeader>()
         }
+        // SHA_ACC INIT/UPDATE return a fixed-size header-only response.
+        // SHA_ACC FINAL returns a variable-size digest response (same as SHA FINAL).
+        c if c == CommandId::MC_SHA_ACC_INIT || c == CommandId::MC_SHA_ACC_UPDATE => {
+            size_of::<McuShaAccInitResp>()
+        }
+        c if c == CommandId::MC_SHA_ACC_FINAL => size_of::<McuShaFinalResp>(),
         c if c == CommandId::MC_PROVISION_VENDOR_PK_HASH => size_of::<ProvisionVendorPkHashResp>(),
         c if c == CommandId::MC_PROVISION_OWNER_PK_HASH => size_of::<ProvisionOwnerPkHashResp>(),
         c if c == CommandId::MC_FUSE_INCREASE_CALIPTRA_MIN_SVN => {

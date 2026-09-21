@@ -94,6 +94,9 @@ impl CommandId {
     pub const MC_SHA_INIT: Self = Self(0x4D43_5349); // "MCSI"
     pub const MC_SHA_UPDATE: Self = Self(0x4D43_5355); // "MCSU"
     pub const MC_SHA_FINAL: Self = Self(0x4D43_5346); // "MCSF"
+    pub const MC_SHA_ACC_INIT: Self = Self(0x4D43_4E49); // "MCNI"
+    pub const MC_SHA_ACC_UPDATE: Self = Self(0x4D43_4E55); // "MCNU"
+    pub const MC_SHA_ACC_FINAL: Self = Self(0x4D43_4E46); // "MCNF"
     pub const MC_HMAC: Self = Self(0x4D43_484D); // "MCHM"
     pub const MC_HMAC_KDF_COUNTER: Self = Self(0x4D43_4B43); // "MCKC"
     pub const MC_HKDF_EXTRACT: Self = Self(0x4D43_4B54); // "MCKT"
@@ -203,6 +206,9 @@ pub enum McuMailboxReq {
     ShaInit(McuShaInitReq),
     ShaUpdate(McuShaUpdateReq),
     ShaFinal(McuShaFinalReq),
+    ShaAccInit(McuShaAccInitReq),
+    ShaAccUpdate(McuShaAccUpdateReq),
+    ShaAccFinal(McuShaAccFinalReq),
     Hmac(McuHmacReq),
     HmacKdfCounter(McuHmacKdfCounterReq),
     HkdfExtract(McuHkdfExtractReq),
@@ -285,6 +291,9 @@ impl McuMailboxReq {
             McuMailboxReq::ShaInit(req) => req.as_bytes_partial(),
             McuMailboxReq::ShaUpdate(req) => req.as_bytes_partial(),
             McuMailboxReq::ShaFinal(req) => req.as_bytes_partial(),
+            McuMailboxReq::ShaAccInit(req) => Ok(req.as_bytes()),
+            McuMailboxReq::ShaAccUpdate(req) => Ok(req.as_bytes()),
+            McuMailboxReq::ShaAccFinal(req) => Ok(req.as_bytes()),
             McuMailboxReq::Hmac(req) => req.as_bytes_partial(),
             McuMailboxReq::HmacKdfCounter(req) => req.as_bytes_partial(),
             McuMailboxReq::HkdfExtract(req) => Ok(req.as_bytes()),
@@ -362,6 +371,9 @@ impl McuMailboxReq {
             McuMailboxReq::ShaInit(req) => req.as_bytes_partial_mut(),
             McuMailboxReq::ShaUpdate(req) => req.as_bytes_partial_mut(),
             McuMailboxReq::ShaFinal(req) => req.as_bytes_partial_mut(),
+            McuMailboxReq::ShaAccInit(req) => Ok(req.as_mut_bytes()),
+            McuMailboxReq::ShaAccUpdate(req) => Ok(req.as_mut_bytes()),
+            McuMailboxReq::ShaAccFinal(req) => Ok(req.as_mut_bytes()),
             McuMailboxReq::Hmac(req) => req.as_bytes_partial_mut(),
             McuMailboxReq::HmacKdfCounter(req) => req.as_bytes_partial_mut(),
             McuMailboxReq::HkdfExtract(req) => Ok(req.as_mut_bytes()),
@@ -439,6 +451,9 @@ impl McuMailboxReq {
             McuMailboxReq::ShaInit(_) => CommandId::MC_SHA_INIT,
             McuMailboxReq::ShaUpdate(_) => CommandId::MC_SHA_UPDATE,
             McuMailboxReq::ShaFinal(_) => CommandId::MC_SHA_FINAL,
+            McuMailboxReq::ShaAccInit(_) => CommandId::MC_SHA_ACC_INIT,
+            McuMailboxReq::ShaAccUpdate(_) => CommandId::MC_SHA_ACC_UPDATE,
+            McuMailboxReq::ShaAccFinal(_) => CommandId::MC_SHA_ACC_FINAL,
             McuMailboxReq::Hmac(_) => CommandId::MC_HMAC,
             McuMailboxReq::HmacKdfCounter(_) => CommandId::MC_HMAC_KDF_COUNTER,
             McuMailboxReq::HkdfExtract(_) => CommandId::MC_HKDF_EXTRACT,
@@ -547,6 +562,9 @@ pub enum McuMailboxResp {
     ShaInit(McuShaInitResp),
     ShaUpdate(McuShaInitResp),
     ShaFinal(McuShaFinalResp),
+    ShaAccInit(McuShaAccInitResp),
+    ShaAccUpdate(McuShaAccInitResp),
+    ShaAccFinal(McuShaFinalResp),
     Hmac(McuHmacResp),
     HmacKdfCounter(McuHmacKdfCounterResp),
     HkdfExtract(McuHkdfExtractResp),
@@ -687,6 +705,9 @@ impl McuMailboxResp {
             McuMailboxResp::ShaInit(resp) => Ok(resp.as_bytes()),
             McuMailboxResp::ShaUpdate(resp) => Ok(resp.as_bytes()),
             McuMailboxResp::ShaFinal(resp) => resp.as_bytes_partial(),
+            McuMailboxResp::ShaAccInit(resp) => Ok(resp.as_bytes()),
+            McuMailboxResp::ShaAccUpdate(resp) => Ok(resp.as_bytes()),
+            McuMailboxResp::ShaAccFinal(resp) => resp.as_bytes_partial(),
             McuMailboxResp::Hmac(resp) => resp.as_bytes_partial(),
             McuMailboxResp::HmacKdfCounter(resp) => Ok(resp.as_bytes()),
             McuMailboxResp::HkdfExtract(resp) => Ok(resp.as_bytes()),
@@ -762,6 +783,9 @@ impl McuMailboxResp {
             McuMailboxResp::ShaInit(resp) => Ok(resp.as_mut_bytes()),
             McuMailboxResp::ShaUpdate(resp) => Ok(resp.as_mut_bytes()),
             McuMailboxResp::ShaFinal(resp) => resp.as_bytes_partial_mut(),
+            McuMailboxResp::ShaAccInit(resp) => Ok(resp.as_mut_bytes()),
+            McuMailboxResp::ShaAccUpdate(resp) => Ok(resp.as_mut_bytes()),
+            McuMailboxResp::ShaAccFinal(resp) => resp.as_bytes_partial_mut(),
             McuMailboxResp::Hmac(resp) => resp.as_bytes_partial_mut(),
             McuMailboxResp::HmacKdfCounter(resp) => Ok(resp.as_mut_bytes()),
             McuMailboxResp::HkdfExtract(resp) => Ok(resp.as_mut_bytes()),
@@ -1080,6 +1104,54 @@ impl_mcu_request_varsize!(McuShaFinalReq, CmShaFinalReq);
 #[derive(Debug, IntoBytes, FromBytes, Immutable, KnownLayout, PartialEq, Eq)]
 pub struct McuShaFinalResp(pub CmShaFinalResp);
 impl_mcu_response_varsize!(McuShaFinalResp, CmShaFinalResp);
+
+// ---- SHA_ACC (DMA path) wrappers ----
+#[repr(C)]
+#[derive(Debug, Default, IntoBytes, FromBytes, KnownLayout, Immutable, PartialEq, Eq)]
+pub struct McuShaAccInitReq {
+    pub hdr: MailboxReqHeader,
+    pub hash_algorithm: u32,
+    pub data_size: u32,
+    pub addr_lo: u32,
+    pub addr_hi: u32,
+}
+impl Request for McuShaAccInitReq {
+    const ID: CommandId = CommandId::MC_SHA_ACC_INIT;
+    type Resp = McuShaAccInitResp;
+}
+
+#[repr(C)]
+#[derive(Debug, Default, IntoBytes, FromBytes, KnownLayout, Immutable, PartialEq, Eq)]
+pub struct McuShaAccUpdateReq {
+    pub hdr: MailboxReqHeader,
+    pub data_size: u32,
+    pub addr_lo: u32,
+    pub addr_hi: u32,
+}
+impl Request for McuShaAccUpdateReq {
+    const ID: CommandId = CommandId::MC_SHA_ACC_UPDATE;
+    type Resp = McuShaAccInitResp;
+}
+
+#[repr(C)]
+#[derive(Debug, Default, IntoBytes, FromBytes, KnownLayout, Immutable, PartialEq, Eq)]
+pub struct McuShaAccFinalReq {
+    pub hdr: MailboxReqHeader,
+    pub data_size: u32,
+    pub addr_lo: u32,
+    pub addr_hi: u32,
+}
+impl Request for McuShaAccFinalReq {
+    const ID: CommandId = CommandId::MC_SHA_ACC_FINAL;
+    type Resp = McuShaFinalResp;
+}
+
+#[repr(C)]
+#[derive(Debug, Default, IntoBytes, FromBytes, KnownLayout, Immutable, PartialEq, Eq)]
+pub struct McuShaAccInitResp {
+    pub hdr: MailboxRespHeader,
+}
+impl Response for McuShaAccInitResp {}
 
 // ---- HMAC wrappers ----
 #[repr(C)]
