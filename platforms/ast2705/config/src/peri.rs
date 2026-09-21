@@ -36,7 +36,7 @@ pub const EDAF_BRIDGE1_ADDR: u32 = 0x34c3_8200;
 
 /* EDAF bridge configuration */
 pub const EDAF_BRIDGE0_ENABLE: bool = true;
-pub const EDAF_BRIDGE0_DDR_MODE: bool = true;
+pub const EDAF_BRIDGE0_DDR_MODE: bool = false;
 pub const EDAF_BRIDGE0_ERASE_WITH_ONE: bool = true;
 pub const EDAF_BRIDGE0_ESPI_BASE: u32 = 0x34c0_5000;
 pub const EDAF_BRIDGE0_SPI_MEM_BASE: u64 = 0x0000_0001_8000_0000;
